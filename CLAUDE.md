@@ -10,6 +10,13 @@ una mascota robot (Cosmo) que anima constantemente. Cada planeta tiene una secci
 juego** (retos con puntaje, estrellas y racha). Proyecto hermano de `tsi-vault` /
 `tsi-catalogo` pero de dominio totalmente distinto — no comparten código.
 
+Publicado en `https://walvaca.github.io/santi-matematicas/` (GitHub Pages, repo
+`walvaca/santi-matematicas`) — Santi ya la usa en su celular real. **v1.2** (tag de
+git) es la versión que está jugando ahora mismo; cualquier cambio nuevo debe
+commitearse y pushearse a `main` para que le llegue (`git push`, sin pasos extra de
+publicación — Pages se re-despliega solo). Si se hace un cambio grande que valga la
+pena marcar como hito, seguir con `git tag -a vX.Y -m "..."` + `git push origin vX.Y`.
+
 ## Stack técnico
 - Sin framework, sin build step. `index.html` (estructura + CSS en `<style>`) + JS
   vanilla en `js/*.js`, cada archivo cuelga de un namespace `window.SM`
