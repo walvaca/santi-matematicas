@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+<meta name="theme-color" content="#0b1130">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Súper Santi: Misión Matemática</title>
+<style>
+:root{
+  --bg:#0b1130; --bg2:#141c3f; --card:#1b2350; --card2:#232b63;
+  --border:#333e78; --text:#eef1ff; --muted:#9aa4d6;
+  --accent:#4fd1ff; --accent2:#ff8a3d; --green:#3fd67a; --red:#ff5c72; --yellow:#ffd23f;
+  --sm-cuerpo:#dfe6fb; --sm-cara:#0b1130;
+  --radius:16px; --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15.5px}
+button{font-family:inherit;cursor:pointer;border:none;font-size:14px;color:inherit}
+input,select{font-family:inherit;font-size:15px;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;outline:none}
+input:focus,select:focus{border-color:var(--accent)}
+input[type=checkbox]{width:20px;height:20px}
+select{max-width:150px}
+h1{font-size:19px}
+h2{font-size:17px;margin-bottom:6px}
+p{line-height:1.5}
+.sm-muted{color:var(--muted);font-size:12.5px}
+
+#app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.sm-pantalla{padding:16px 14px 10px;flex:1;display:flex;flex-direction:column;animation:smFadeIn .25s ease}
+@keyframes smFadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.btn{background:var(--accent2);color:#1a1204;padding:13px 18px;border-radius:12px;font-weight:700;transition:opacity .15s,transform .1s;width:100%}
+.btn:active{transform:scale(.97)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-sec{background:var(--card2);color:var(--text);border:1px solid var(--border)}
+.btn-peligro{background:rgba(255,92,114,.15);color:var(--red);border:1px solid var(--red)}
+.sm-btn-icono{background:var(--card2);color:var(--text);width:38px;height:38px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ---------- mascota Cosmo ---------- */
+.sm-mascota-svg{width:110px;height:110px;display:block;margin:0 auto;flex-shrink:0}
+.sm-mascota-svg.sm-mascota-media{width:76px;height:76px;margin:0}
+.sm-mascota-svg.sm-mascota-chica{width:56px;height:56px;margin:0 auto 6px}
+.sm-chispa{fill:var(--yellow);animation:smTwinkle 1.4s ease-in-out infinite}
+.sm-chispa2{animation-delay:.3s}
+.sm-chispa3{animation-delay:.6s}
+@keyframes smTwinkle{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* ---------- inicio ---------- */
+.sm-inicio-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sm-inicio-header h1{font-size:17px;line-height:1.3}
+.sm-stats-fila{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.sm-stats-fila.sm-centrado{justify-content:center}
+.sm-stat-chip{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:7px 13px;font-size:12.5px;color:var(--muted)}
+.sm-stat-chip b{color:var(--text)}
+
+.sm-planetas-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sm-planeta-card{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--color-planeta,var(--accent));border-radius:var(--radius);padding:14px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;transition:transform .1s}
+.sm-planeta-card:active{transform:scale(.96)}
+.sm-planeta-emoji{font-size:32px}
+.sm-planeta-nombre{font-weight:700;font-size:14.5px}
+.sm-planeta-subtitulo{color:var(--muted);font-size:11px;min-height:26px}
+.sm-planeta-barra{width:100%;height:6px;background:var(--bg2);border-radius:4px;overflow:hidden;margin-top:4px}
+.sm-planeta-barra span{display:block;height:100%;background:var(--color-planeta,var(--accent))}
+.sm-planeta-estrellas{font-size:11px;color:var(--muted)}
+
+/* ---------- barra inferior ---------- */
+.sm-navbar{position:sticky;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--border);margin:16px -14px -10px;padding:8px 0 max(8px,env(safe-area-inset-bottom))}
+.sm-navbar-btn{flex:1;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted);font-size:11px;padding:4px}
+.sm-navbar-btn span{font-size:20px}
+.sm-navbar-btn.activo{color:var(--accent)}
+
+/* ---------- mundo / niveles ---------- */
+.sm-header-mundo{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sm-header-mundo>div{flex:1;min-width:0}
+.sm-btn-leccion{margin-bottom:14px;background:var(--card2);color:var(--text);border:1px solid var(--color-planeta,var(--border))}
+.sm-niveles-lista{display:flex;flex-direction:column}
+.sm-nivel-fila{display:flex;align-items:center;gap:8px}
+.sm-nivel-conector{width:3px;height:14px;background:var(--border);margin-left:27px}
+.sm-nivel-conector.activo{background:var(--color-planeta,var(--accent))}
+.sm-nivel-nodo{flex:1;min-width:0;display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-left:4px solid var(--color-planeta,var(--accent));border-radius:12px;padding:12px;text-align:left}
+.sm-btn-reset-nivel{flex-shrink:0;width:38px;height:38px;border-radius:10px;background:var(--card2);border:1px solid var(--border);color:var(--muted);font-size:17px}
+.sm-nivel-nodo.bloqueado{opacity:.45}
+.sm-nivel-nodo.actual{box-shadow:0 0 0 2px var(--color-planeta,var(--accent)),0 0 14px rgba(79,209,255,.35);animation:smLatido 1.8s ease-in-out infinite}
+@keyframes smLatido{0%,100%{transform:scale(1)}50%{transform:scale(1.015)}}
+.sm-nivel-icono{font-size:20px;width:30px;text-align:center;flex-shrink:0}
+.sm-nivel-info{display:flex;flex-direction:column;gap:4px}
+.sm-nivel-nombre{font-weight:600;font-size:14px}
+.sm-nivel-fila-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sm-estrella{color:var(--border);font-size:15px}
+.sm-estrella.llena{color:var(--yellow)}
+.sm-dificultad{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--muted)}
+.sm-dif-pips{display:flex;gap:2px}
+.sm-dif-pip{width:6px;height:6px;border-radius:50%;background:var(--border);display:block}
+.sm-dif-pip.llena{background:var(--color-dif,var(--accent))}
+
+/* ---------- lección ---------- */
+.sm-leccion-tarjeta{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;text-align:center;margin-bottom:14px}
+.sm-leccion-tarjeta p{color:var(--text);font-size:14.5px}
+.sm-leccion-visual{margin-top:12px}
+.sm-puntos-fila{display:flex;justify-content:center;gap:6px;margin-bottom:16px}
+.sm-punto{width:7px;height:7px;border-radius:50%;background:var(--border)}
+.sm-punto.activo{background:var(--accent);width:18px;border-radius:4px}
+.sm-leccion-botones{display:flex;gap:10px;margin-top:auto}
+
+/* ---------- juego ---------- */
+.sm-pantalla-juego{padding-bottom:20px}
+.sm-barra-superior{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.sm-progreso-zona{flex:1}
+.sm-progreso-texto{font-size:11.5px;color:var(--muted);margin-bottom:4px}
+.sm-progreso-barra{height:7px;background:var(--card2);border-radius:4px;overflow:hidden}
+.sm-progreso-barra span{display:block;height:100%;background:var(--accent2)}
+.sm-timer{font-weight:700;font-size:16px}
+.sm-timer.urgente{color:var(--red);animation:smPulso .6s infinite}
+@keyframes smPulso{0%,100%{opacity:1}50%{opacity:.4}}
+.sm-racha-chip{font-weight:700;color:var(--accent2);font-size:14px;min-width:34px;text-align:right}
+.sm-vidas-chip{font-size:14px;letter-spacing:1px;white-space:nowrap}
+.sm-timer-pregunta{position:absolute;top:10px;right:14px;font-weight:700;font-size:12.5px;color:var(--accent2);background:var(--card2);border-radius:20px;padding:3px 9px}
+
+.sm-pregunta-card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;text-align:center;margin-bottom:16px}
+.sm-pregunta-texto{font-size:21px;font-weight:700;line-height:1.4}
+.sm-pregunta-visual{display:flex;justify-content:center;margin-bottom:10px}
+.sm-puntos-popup{position:absolute;top:6px;right:14px;color:var(--yellow);font-weight:800;font-size:15px;pointer-events:none;animation:smFlotar .9s ease forwards}
+@keyframes smFlotar{0%{opacity:0;transform:translateY(6px) scale(.8)}20%{opacity:1;transform:translateY(-2px) scale(1.1)}80%{opacity:1}100%{opacity:0;transform:translateY(-26px) scale(1)}}
+
+.sm-opciones{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sm-opcion-btn{background:var(--card2);border:2px solid var(--border);border-radius:12px;padding:16px 8px;font-size:17px;font-weight:600;text-align:center}
+.sm-opcion-btn:disabled{opacity:.6}
+.sm-opcion-btn.correcta{border-color:var(--green);background:rgba(63,214,122,.18);color:var(--green);opacity:1}
+.sm-opcion-btn.incorrecta{border-color:var(--red);background:rgba(255,92,114,.18);color:var(--red);opacity:1}
+
+.sm-numero-zona{display:flex;flex-direction:column;align-items:center;gap:14px}
+.sm-numero-display{min-width:140px;min-height:52px;background:var(--card2);border:2px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;letter-spacing:2px}
+.sm-teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+.sm-tecla{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:16px 0;font-size:19px;font-weight:700}
+.sm-tecla:disabled{opacity:.5}
+.sm-tecla-ok{background:var(--green);color:#04220f}
+
+.sm-feedback-panel{margin-top:14px;padding:14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--card)}
+.sm-feedback-panel.correcta{border-color:var(--green);background:rgba(63,214,122,.1)}
+.sm-feedback-panel.incorrecta{border-color:var(--red);background:rgba(255,92,114,.1)}
+.sm-feedback-panel p{font-weight:600;margin-bottom:6px}
+.sm-explicacion{font-weight:400!important;color:var(--muted);font-size:13px}
+.sm-feedback-panel .btn{margin-top:8px}
+
+/* ---------- resultado ---------- */
+.sm-pantalla-resultado{text-align:center;align-items:center;gap:6px;position:relative}
+.sm-pantalla-resultado h1{margin-top:10px}
+.sm-resultado-estrellas{font-size:44px;letter-spacing:10px;margin:6px 0}
+.sm-arcade-puntaje-final{font-size:48px;font-weight:800;color:var(--accent2);margin:4px 0}
+.sm-resultado-estrellas .sm-estrella.llena{animation:smPop .4s ease backwards}
+.sm-resultado-estrellas .sm-estrella:nth-child(2){animation-delay:.12s}
+.sm-resultado-estrellas .sm-estrella:nth-child(3){animation-delay:.24s}
+@keyframes smPop{0%{transform:scale(0)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+.sm-record{color:var(--yellow);font-weight:700;font-size:13px}
+.sm-logros-nuevos{display:flex;flex-direction:column;gap:8px;width:100%;margin:10px 0}
+.sm-logro-chip{background:var(--card);border:1px solid var(--yellow);border-radius:12px;padding:10px 12px;text-align:left;font-size:13px}
+.sm-resultado-botones{display:flex;flex-direction:column;gap:10px;width:100%;margin-top:16px}
+.sm-confeti-zona{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.sm-confeti-pieza{position:absolute;top:-12px;width:9px;height:14px;opacity:.9;border-radius:2px;animation-name:smCaer;animation-timing-function:ease-in;animation-fill-mode:forwards}
+@keyframes smCaer{to{transform:translateY(112vh) rotate(360deg);opacity:0}}
+
+/* ---------- logros ---------- */
+.sm-logros-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sm-logro-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 10px;text-align:center;opacity:.4;display:flex;flex-direction:column;align-items:center;gap:4px}
+.sm-logro-card.obtenido{opacity:1;border-color:var(--yellow)}
+.sm-logro-icono{font-size:28px}
+.sm-logro-nombre{font-weight:700;font-size:13px}
+.sm-logro-desc{font-size:11px;color:var(--muted)}
+
+/* ---------- arcade: menú ---------- */
+.sm-arcade-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+.sm-arcade-emoji{font-size:44px}
+.sm-arcade-card p{color:var(--muted);font-size:13.5px;margin-bottom:6px}
+.sm-arcade-card .btn{margin-top:8px}
+
+/* ---------- invasores numéricos ---------- */
+.sm-pantalla-invasores{padding-bottom:10px}
+.sm-invasores-hud{flex:1;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700}
+.sm-invasores-regla{background:var(--card2);border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:9px 12px;text-align:center;font-weight:700;font-size:13.5px;margin-bottom:10px}
+.sm-regla-flash{animation:smReglaFlash .6s ease}
+@keyframes smReglaFlash{0%{transform:scale(1.06);background:rgba(255,138,61,.35)}100%{transform:scale(1)}}
+.sm-invasores-area{position:relative;overflow:hidden;flex:1;min-height:52vh;background:radial-gradient(circle at 50% 0%,rgba(79,209,255,.08),transparent 60%);border:1px solid var(--border);border-radius:var(--radius)}
+.sm-invasores-area.sm-shake{animation:smShake .35s}
+@keyframes smShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.sm-nave{position:absolute;min-width:46px;padding:10px 8px;background:var(--card2);border:2px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:14px;transform:translateX(-50%)}
+.sm-nave.sm-nave-acierto{border-color:var(--green);background:rgba(63,214,122,.3);animation:smExplota .22s ease forwards}
+.sm-nave.sm-nave-error{border-color:var(--red);background:rgba(255,92,114,.3);animation:smExplota .22s ease forwards}
+@keyframes smExplota{to{transform:translateX(-50%) scale(1.5);opacity:0}}
+.sm-puntos-popup-arcade{position:absolute;color:var(--yellow);font-weight:800;font-size:15px;pointer-events:none;transform:translateX(-50%);animation:smFlotar .7s ease forwards}
+
+/* ---------- ajustes ---------- */
+.sm-ajustes-lista{display:flex;flex-direction:column;gap:16px;margin-top:6px}
+.sm-campo{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.sm-campo input[type=text]{color:var(--text)}
+.sm-campo-fila{flex-direction:row;align-items:center;justify-content:space-between}
+
+/* ---------- visuales de fracciones / álgebra / arreglos ---------- */
+.sm-pizza{width:110px;height:110px;border-radius:50%;border:3px solid var(--border);margin:0 auto}
+.sm-fila-pizzas{display:flex;gap:16px;justify-content:center}
+.sm-grid-puntos{display:grid;grid-template-columns:repeat(var(--cols),1fr);gap:6px;width:max-content;margin:0 auto}
+.sm-grid-puntos span{width:13px;height:13px;border-radius:50%;background:var(--accent);display:block}
+.sm-balanza{display:flex;align-items:center;justify-content:center;gap:0;margin:0 auto}
+.sm-balanza-plato{background:var(--card2);border:2px solid var(--border);border-radius:10px;padding:12px 16px;font-weight:700;font-size:16px}
+.sm-balanza-barra{width:28px;height:4px;background:var(--muted)}
+
+/* ---------- quiz final ---------- */
+.sm-quiz-zona{margin-top:4px}
+.sm-quiz-nodo{border-left:4px solid var(--yellow);background:linear-gradient(135deg,var(--card),rgba(255,210,63,.08))}
+.sm-quiz-nota{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* ---------- metas y premios ---------- */
+.sm-meta-mini{display:flex;align-items:center;gap:10px;width:100%;background:var(--card);border:1px solid var(--yellow);border-radius:12px;padding:10px 12px;margin-bottom:14px;text-align:left}
+.sm-meta-mini-emoji{font-size:26px;flex-shrink:0}
+.sm-meta-mini-info{flex:1;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.sm-metas-lista{display:flex;flex-direction:column;gap:10px}
+.sm-meta-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.sm-meta-card.lista{border-color:var(--yellow);box-shadow:0 0 12px rgba(255,210,63,.25)}
+.sm-meta-card.reclamada{opacity:.55}
+.sm-meta-emoji{font-size:28px;flex-shrink:0}
+.sm-meta-info{flex:1;display:flex;flex-direction:column;gap:5px}
+.sm-meta-nombre{font-weight:700;font-size:14px}
+.sm-meta-puntos{font-size:11.5px;color:var(--muted)}
+.sm-meta-estado{font-size:20px}
+.sm-metas-ayuda{text-align:center;margin-top:14px;font-size:12px;line-height:1.5}
+.sm-meta-chip{border-color:var(--yellow)!important}
+
+/* ---------- gestión de metas (ajustes) ---------- */
+.sm-metas-admin-lista{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.sm-meta-admin-fila{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg2);border-radius:8px;padding:8px 10px;font-size:12.5px}
+.sm-meta-admin-botones{display:flex;gap:6px;flex-shrink:0}
+.sm-btn-mini{width:auto;padding:6px 10px;font-size:11.5px;border-radius:8px}
+.sm-meta-form{display:flex;flex-direction:column;gap:8px;background:var(--bg2);border-radius:10px;padding:10px}
+.sm-meta-form-fila{display:flex;gap:8px}
+.sm-meta-form-fila input:first-child{flex:0 0 60px;text-align:center}
+.sm-meta-form-fila input:last-child{flex:1}
+
+/* ---------- overlay / modal ---------- */
+.sm-overlay{position:fixed;inset:0;background:rgba(5,8,25,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.sm-modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;max-width:340px;width:100%;text-align:center;box-shadow:var(--shadow)}
+.sm-modal p{margin-bottom:4px}
+.sm-modal-botones{display:flex;gap:10px;margin-top:16px}
+.sm-modal-botones button{flex:1}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="js/progreso.js"></script>
+<script src="js/mundos.js"></script>
+<script src="js/mascota.js"></script>
+<script src="js/sonido.js"></script>
+<script src="js/generadores.js"></script>
+<script src="js/lecciones.js"></script>
+<script src="js/juego.js"></script>
+<script src="js/arcade.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
