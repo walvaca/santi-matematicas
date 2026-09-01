@@ -25,7 +25,11 @@ pena marcar como hito, seguir con `git tag -a vX.Y -m "..."` + `git push origin 
 - Persistencia: **localStorage** (clave `superSantiProgreso`) — estrellas por nivel,
   XP total, racha de días, logros. Es JSON pequeño, no hace falta IndexedDB.
 - `manifest.json` + `sw.js` — PWA instalable/offline, mismo patrón que
-  `tsi-catalogo/sw.js` (red primero, cae a caché sin internet).
+  `tsi-catalogo/sw.js` (red primero, cae a caché sin internet). Los dos `fetch()` de
+  `sw.js` usan `{cache:'reload'}`/`{cache:'no-store'}` a propósito — sin eso, un
+  `fetch()` normal puede resolver desde la caché HTTP del navegador aunque haya
+  internet, y una revisita real sirvió JS viejo pese a haber subido `CACHE_NAME`. Si
+  se vuelve a tocar `sw.js`, no quitar esas opciones sin motivo.
 - Iconos (`icon-192.png` / `icon-512.png`) generados con Pillow (script no versionado,
   en el scratchpad de la sesión que los creó) — tema espacial: cohete + planeta con
   anillo sobre fondo degradado azul-violeta.

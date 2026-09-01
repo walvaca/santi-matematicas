@@ -2,7 +2,7 @@
    Estrategia: si hay internet, siempre trae la versión más nueva (y la guarda en caché
    de paso); si no hay internet, sirve la última copia guardada. El progreso vive en
    localStorage (js/progreso.js), no aquí — este cache solo cubre el código de la app. */
-const CACHE_NAME = 'super-santi-v5';
+const CACHE_NAME = 'super-santi-v6';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './js/progreso.js', './js/mundos.js', './js/mascota.js', './js/sonido.js',
@@ -10,10 +10,14 @@ const ASSETS = [
   './js/ui.js', './js/app.js'
 ];
 
+// `cache:'reload'`/`'no-store'` en los dos fetch de abajo son a propósito: sin eso,
+// `fetch()` puede resolver desde la caché HTTP del navegador aunque haya internet,
+// así que subir CACHE_NAME no bastaba para que una visita repetida trajera el
+// código nuevo de verdad — se detectó sirviendo JS viejo en una revisita real.
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(cache =>
-    Promise.all(ASSETS.map(a => cache.add(a).catch(err => console.error('No se pudo cachear', a, err))))
-  ));
+  e.waitUntil(caches.open(CACHE_NAME).then((cache) => Promise.all(
+    ASSETS.map((a) => fetch(a, { cache: 'reload' }).then((res) => cache.put(a, res)).catch((err) => console.error('No se pudo cachear', a, err)))
+  )));
   self.skipWaiting();
 });
 
@@ -30,7 +34,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
 
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-store' })
       .then(res => {
         if (res.ok) caches.open(CACHE_NAME).then(cache => cache.put(e.request, res.clone()));
         return res;
