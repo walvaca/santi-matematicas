@@ -4,11 +4,11 @@
 (function () {
   let intervaloJuego = null;
   let intervaloPregunta = null;
-  let rafInvasores = null;
+  let rafArcade = null;
   function detenerIntervalo() {
     if (intervaloJuego) { clearInterval(intervaloJuego); intervaloJuego = null; }
     if (intervaloPregunta) { clearInterval(intervaloPregunta); intervaloPregunta = null; }
-    if (rafInvasores) { cancelAnimationFrame(rafInvasores); rafInvasores = null; }
+    if (rafArcade) { cancelAnimationFrame(rafArcade); rafArcade = null; }
   }
 
   function esc(s) {
@@ -100,19 +100,33 @@
     const metaProxima = estado.metas
       .filter((m) => !m.reclamada)
       .sort((a, b) => a.puntos - b.puntos)
-      .find((m) => estado.xp < m.puntos) || estado.metas.find((m) => !m.reclamada);
+      .find((m) => !SM.progreso.metaLista(estado, m)) || estado.metas.find((m) => !m.reclamada);
     const metaHTML = metaProxima ? (() => {
       const pct = Math.min(100, Math.round((estado.xp / metaProxima.puntos) * 100));
-      const lista = estado.xp >= metaProxima.puntos;
+      const lista = SM.progreso.metaLista(estado, metaProxima);
+      const notaRacha = metaProxima.rachaMinima ? ` · 🔥 racha de ${metaProxima.rachaMinima} días` : '';
       return `<button class="sm-meta-mini" data-accion="premios">
         <span class="sm-meta-mini-emoji">${metaProxima.emoji}</span>
         <span class="sm-meta-mini-info">
           <span>${lista ? '¡Meta lista! ' : 'Próxima meta: '}<b>${esc(metaProxima.nombre)}</b></span>
           <span class="sm-planeta-barra"><span style="width:${pct}%"></span></span>
-          <small class="sm-muted">${estado.xp}/${metaProxima.puntos} XP</small>
+          <small class="sm-muted">${estado.xp}/${metaProxima.puntos} XP${notaRacha}</small>
         </span>
       </button>`;
     })() : '';
+
+    const xpHoy = estado.retoDiario.xpHoy;
+    const metaHoy = estado.metaDiariaXP;
+    const cumplidoHoy = estado.retoDiario.cumplidoHoy;
+    const pctHoy = Math.min(100, Math.round((xpHoy / metaHoy) * 100));
+    const retoHTML = `<div class="sm-reto-diario ${cumplidoHoy ? 'cumplido' : ''}">
+      <span class="sm-reto-diario-emoji">${cumplidoHoy ? '✅' : '🎯'}</span>
+      <div class="sm-meta-mini-info">
+        <span>${cumplidoHoy ? '¡Reto de hoy cumplido!' : 'Reto de hoy'} <b>${xpHoy}/${metaHoy} XP</b></span>
+        <span class="sm-planeta-barra"><span style="width:${pctHoy}%"></span></span>
+        <small class="sm-muted">${cumplidoHoy ? `Racha activa: ${estado.racha.dias} día${estado.racha.dias === 1 ? '' : 's'} 🔥` : 'Si no lo cumples hoy, la racha vuelve a 0 mañana'}</small>
+      </div>
+    </div>`;
 
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-inicio">
       <header class="sm-inicio-header">
@@ -124,6 +138,7 @@
         <div class="sm-stat-chip">🔥 <b>${estado.racha.dias}</b> día${estado.racha.dias === 1 ? '' : 's'}</div>
         <div class="sm-stat-chip">⭐ <b>${totalEstrellas}</b> estrellas</div>
       </div>
+      ${retoHTML}
       ${metaHTML}
       <div class="sm-planetas-grid">${tarjetas}</div>
       ${barraInferior('inicio')}
@@ -454,6 +469,7 @@
           <div class="sm-stat-chip">✅ ${r.correctas}/${r.total}</div>
           <div class="sm-stat-chip">✨ +${r.xpGanado} XP</div>
         </div>
+        ${r.retoCumplidoAhora ? `<div class="sm-logros-nuevos"><div class="sm-logro-chip sm-reto-chip">🎯 ¡Reto diario cumplido! <b>Racha: ${caja.estado.racha.dias} 🔥</b></div></div>` : ''}
         ${r.logrosNuevos.length ? `<div class="sm-logros-nuevos">${r.logrosNuevos.map((l) => `
           <div class="sm-logro-chip">${l.icono} <b>${esc(l.nombre)}</b><br><small>${esc(l.descripcion)}</small></div>`).join('')}</div>` : ''}
         ${r.metasNuevas.length ? `<div class="sm-logros-nuevos">${r.metasNuevas.map((m) => `
@@ -467,7 +483,7 @@
 
       SM.sonido.nivelCompletado(r.estrellas);
       if (r.estrellas === 3) lanzarConfeti(document.getElementById('sm-confeti-zona'));
-      if (r.logrosNuevos.length || r.metasNuevas.length) setTimeout(() => SM.sonido.logro(), 350);
+      if (r.logrosNuevos.length || r.metasNuevas.length || r.retoCumplidoAhora) setTimeout(() => SM.sonido.logro(), 350);
 
       root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir('juego', { mundoId, nivelId }); });
       root.querySelector('[data-accion="mapa"]').addEventListener('click', () => { SM.sonido.click(); ir('mundo', { mundoId }); });
@@ -486,35 +502,74 @@
     }
   }
 
+  // Pantalla de resultados compartida por los 3 juegos de arcade: registra el
+  // puntaje, celebra récord/logros/metas/reto diario, y ofrece reintentar o volver.
+  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, puntaje, comboMax) {
+    const resultado = SM.progreso.registrarResultadoArcade(caja.estado, juegoId, puntaje);
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
+      <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
+      ${SM.mascota.svg(puntaje >= 100 ? 'celebrando' : 'feliz', 'sm-mascota-media')}
+      <h1>¡Misión de arcade completada!</h1>
+      <p class="sm-muted">Puntaje final</p>
+      <div class="sm-arcade-puntaje-final">${puntaje}</div>
+      ${resultado.esRecord ? '<p class="sm-record">🏅 ¡Nuevo récord!</p>' : ''}
+      <div class="sm-stats-fila sm-centrado">
+        <div class="sm-stat-chip">🔥 Mejor combo: <b>${comboMax}</b></div>
+        <div class="sm-stat-chip">✨ +${resultado.xpGanado} XP</div>
+      </div>
+      ${resultado.retoCumplidoAhora ? `<div class="sm-logros-nuevos"><div class="sm-logro-chip sm-reto-chip">🎯 ¡Reto diario cumplido! <b>Racha: ${caja.estado.racha.dias} 🔥</b></div></div>` : ''}
+      ${resultado.logrosNuevos.length ? `<div class="sm-logros-nuevos">${resultado.logrosNuevos.map((l) => `
+        <div class="sm-logro-chip">${l.icono} <b>${esc(l.nombre)}</b><br><small>${esc(l.descripcion)}</small></div>`).join('')}</div>` : ''}
+      ${resultado.metasNuevas.length ? `<div class="sm-logros-nuevos">${resultado.metasNuevas.map((m) => `
+        <div class="sm-logro-chip sm-meta-chip">${m.emoji} ¡Meta alcanzada! <b>${esc(m.nombre)}</b><br><small>Pídesela a papá o mamá 🎉</small></div>`).join('')}</div>` : ''}
+      <div class="sm-resultado-botones">
+        <button class="btn btn-sec" data-accion="reintentar">🔁 Jugar de nuevo</button>
+        <button class="btn btn-sec" data-accion="volver">🕹️ Volver al Arcade</button>
+      </div>
+    </div>`;
+    SM.sonido.nivelCompletado(resultado.esRecord ? 3 : 1);
+    if (resultado.esRecord) lanzarConfeti(document.getElementById('sm-confeti-zona'));
+    if (resultado.logrosNuevos.length || resultado.metasNuevas.length) setTimeout(() => SM.sonido.logro(), 350);
+    root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir(idPantallaJuego); });
+    root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
+  }
+
   // ==================== ARCADE (menú) ====================
   function pantallaArcade(root, caja, ir) {
     detenerIntervalo();
     const estado = caja.estado;
+    const tarjetas = SM.arcade.JUEGOS.map((j) => {
+      const stats = estado.arcade.juegos[j.id] || { mejorPuntaje: 0, partidasJugadas: 0 };
+      return `<div class="sm-arcade-card">
+        <span class="sm-arcade-emoji">${j.emoji}</span>
+        <h2>${esc(j.nombre)}</h2>
+        <p>${esc(j.descripcion)}</p>
+        <div class="sm-stats-fila sm-centrado">
+          <div class="sm-stat-chip">🏅 Mejor puntaje: <b>${stats.mejorPuntaje}</b></div>
+          <div class="sm-stat-chip">🎮 Partidas: <b>${stats.partidasJugadas}</b></div>
+        </div>
+        <button class="btn" data-jugar="${j.id}">▶️ Jugar</button>
+      </div>`;
+    }).join('');
+
     root.innerHTML = `<div class="sm-pantalla">
       <header class="sm-inicio-header">
         ${SM.mascota.svg('animando', 'sm-mascota-media')}
-        <div><h1>🕹️ Arcade</h1><p class="sm-muted">Mini-juegos para ganar puntos extra</p></div>
+        <div><h1>🕹️ Arcade</h1><p class="sm-muted">Elige un juego y gana puntos extra</p></div>
       </header>
-      <div class="sm-arcade-card">
-        <span class="sm-arcade-emoji">👾</span>
-        <h2>Invasores Numéricos</h2>
-        <p>Naves con números caen del cielo. Lee la regla y dispara solo a las que la cumplan — ¡cuidado con las trampas!</p>
-        <div class="sm-stats-fila sm-centrado">
-          <div class="sm-stat-chip">🏅 Mejor puntaje: <b>${estado.arcade.mejorPuntaje}</b></div>
-          <div class="sm-stat-chip">🎮 Partidas: <b>${estado.arcade.partidasJugadas}</b></div>
-        </div>
-        <button class="btn" data-accion="jugar">▶️ Jugar</button>
-      </div>
+      <div class="sm-arcade-lista">${tarjetas}</div>
       ${barraInferior('arcade')}
     </div>`;
-    root.querySelector('[data-accion="jugar"]').addEventListener('click', () => { SM.sonido.click(); ir('invasores'); });
+    root.querySelectorAll('[data-jugar]').forEach((btn) => {
+      btn.addEventListener('click', () => { SM.sonido.click(); ir(btn.dataset.jugar); });
+    });
     cablearNavbar(root, ir);
   }
 
   // ==================== INVASORES NUMÉRICOS (mini-juego) ====================
   function pantallaInvasores(root, caja, ir) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartida(90);
+    const partida = SM.arcade.crearPartidaInvasores(90);
     let naves = [];
     let corriendo = true;
     let ultimoTiempo = null;
@@ -634,43 +689,200 @@
         naves.push(nueva);
       }
 
-      rafInvasores = requestAnimationFrame(paso);
+      rafArcade = requestAnimationFrame(paso);
     }
 
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      const puntajeFinal = partida.puntaje();
-      const resultado = SM.progreso.registrarResultadoArcade(caja.estado, puntajeFinal);
-      root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
-        <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
-        ${SM.mascota.svg(puntajeFinal >= 100 ? 'celebrando' : 'feliz', 'sm-mascota-media')}
-        <h1>¡Misión de arcade completada!</h1>
-        <p class="sm-muted">Puntaje final</p>
-        <div class="sm-arcade-puntaje-final">${puntajeFinal}</div>
-        ${resultado.esRecord ? '<p class="sm-record">🏅 ¡Nuevo récord!</p>' : ''}
-        <div class="sm-stats-fila sm-centrado">
-          <div class="sm-stat-chip">🔥 Mejor combo: <b>${partida.comboMax()}</b></div>
-          <div class="sm-stat-chip">✨ +${resultado.xpGanado} XP</div>
-        </div>
-        ${resultado.logrosNuevos.length ? `<div class="sm-logros-nuevos">${resultado.logrosNuevos.map((l) => `
-          <div class="sm-logro-chip">${l.icono} <b>${esc(l.nombre)}</b><br><small>${esc(l.descripcion)}</small></div>`).join('')}</div>` : ''}
-        ${resultado.metasNuevas.length ? `<div class="sm-logros-nuevos">${resultado.metasNuevas.map((m) => `
-          <div class="sm-logro-chip sm-meta-chip">${m.emoji} ¡Meta alcanzada! <b>${esc(m.nombre)}</b><br><small>Pídesela a papá o mamá 🎉</small></div>`).join('')}</div>` : ''}
-        <div class="sm-resultado-botones">
-          <button class="btn btn-sec" data-accion="reintentar">🔁 Jugar de nuevo</button>
-          <button class="btn btn-sec" data-accion="volver">🕹️ Volver al Arcade</button>
-        </div>
-      </div>`;
-      SM.sonido.nivelCompletado(resultado.esRecord ? 3 : 1);
-      if (resultado.esRecord) lanzarConfeti(document.getElementById('sm-confeti-zona'));
-      if (resultado.logrosNuevos.length || resultado.metasNuevas.length) setTimeout(() => SM.sonido.logro(), 350);
-      root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir('invasores'); });
-      root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
+      mostrarResultadoArcade(root, caja, ir, 'invasores', 'invasores', partida.puntaje(), partida.comboMax());
     }
 
     actualizarHUD();
-    rafInvasores = requestAnimationFrame(paso);
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ==================== MEMORIA ESPACIAL (mini-juego) ====================
+  function pantallaMemoria(root, caja, ir) {
+    detenerIntervalo();
+    const numPares = 8;
+    const partida = SM.arcade.crearPartidaMemoria(numPares, 120);
+    let corriendo = true;
+    let bloqueado = false;
+    let ultimoTiempo = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Memoria Espacial? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-memoria">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="sm-mem-puntaje">0</b></span>
+          <span>🧩 <b id="sm-mem-pares">0</b>/${numPares}</span>
+          <span>⏱️ <b id="sm-mem-tiempo">${partida.tiempoRestante()}</b>s</span>
+        </div>
+      </header>
+      <div class="sm-memoria-grid" id="sm-memoria-grid"></div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+
+    function actualizarHUD() {
+      document.getElementById('sm-mem-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-mem-pares').textContent = partida.paresEncontrados();
+      document.getElementById('sm-mem-tiempo').textContent = partida.tiempoRestante();
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('sm-memoria-grid');
+      const volteadasIds = partida.volteadas();
+      grid.innerHTML = partida.cartas().map((c) => {
+        const visible = c.encontrada || volteadasIds.includes(c.id);
+        return `<button class="sm-carta-memoria ${visible ? 'volteada' : ''} ${c.encontrada ? 'encontrada' : ''}" data-carta="${c.id}" ${(bloqueado || visible) ? 'disabled' : ''}>
+          <span>${visible ? esc(c.texto) : '❓'}</span>
+        </button>`;
+      }).join('');
+      grid.querySelectorAll('.sm-carta-memoria').forEach((btn) => {
+        btn.addEventListener('click', () => manejarClickCarta(btn.dataset.carta));
+      });
+    }
+
+    function manejarClickCarta(id) {
+      if (bloqueado) return;
+      const r = partida.voltear(id);
+      if (r.resultado === 'ignorado') return;
+      SM.sonido.click();
+      renderGrid();
+      if (r.resultado === 'esperando') return;
+      if (r.resultado === 'acierto') {
+        SM.sonido.acierto();
+        actualizarHUD();
+        if (partida.terminada()) setTimeout(finalizar, 500);
+        return;
+      }
+      bloqueado = true;
+      SM.sonido.error();
+      setTimeout(() => {
+        partida.confirmarFallo();
+        bloqueado = false;
+        renderGrid();
+      }, 900);
+    }
+
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'memoria', 'memoria', partida.puntaje(), partida.comboMax());
+    }
+
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const termino = partida.tick(dt);
+      const elTiempo = document.getElementById('sm-mem-tiempo');
+      if (elTiempo) elTiempo.textContent = partida.tiempoRestante();
+      if (termino) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+
+    renderGrid();
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ==================== ESCALERA NUMÉRICA (mini-juego) ====================
+  function pantallaEscalera(root, caja, ir) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaEscalera(90);
+    let corriendo = true;
+    let ultimoTiempo = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Escalera Numérica? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-escalera">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="sm-esc-puntaje">0</b></span>
+          <span id="sm-esc-vidas">❤️❤️❤️</span>
+          <span>⏱️ <b id="sm-esc-tiempo">${partida.tiempoRestante()}</b>s</span>
+        </div>
+      </header>
+      <div class="sm-escalera-info">
+        <span>🪜 Escalón <b id="sm-esc-escalon">1</b></span>
+        <span class="sm-muted">Toca los números del más pequeño al más grande</span>
+      </div>
+      <div class="sm-escalera-tiles" id="sm-escalera-tiles"></div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+
+    function actualizarHUD() {
+      document.getElementById('sm-esc-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-esc-tiempo').textContent = partida.tiempoRestante();
+      document.getElementById('sm-esc-escalon').textContent = partida.escalon() + 1;
+      const vidas = partida.vidas();
+      document.getElementById('sm-esc-vidas').textContent = '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, 3 - vidas));
+    }
+
+    function renderTiles() {
+      const zona = document.getElementById('sm-escalera-tiles');
+      zona.innerHTML = partida.tiles().map((t) => `<button class="sm-tile-escalera" data-tile="${t.id}">${t.valor}</button>`).join('');
+      zona.querySelectorAll('.sm-tile-escalera').forEach((btn) => {
+        btn.addEventListener('click', () => manejarToque(btn));
+      });
+    }
+
+    function manejarToque(btn) {
+      if (btn.disabled) return;
+      const id = btn.dataset.tile;
+      const r = partida.tocar(id);
+      if (r.correcto) {
+        SM.sonido.acierto();
+        btn.classList.add('acierto');
+        btn.disabled = true;
+        actualizarHUD();
+        if (r.escalonCompleto && !partida.terminada()) setTimeout(renderTiles, 350);
+      } else {
+        SM.sonido.error();
+        const zona = document.getElementById('sm-escalera-tiles');
+        zona.classList.remove('sm-shake');
+        void zona.offsetWidth;
+        zona.classList.add('sm-shake');
+        actualizarHUD();
+      }
+      if (partida.terminada()) setTimeout(finalizar, 400);
+    }
+
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'escalera', 'escalera', partida.puntaje(), partida.comboMax());
+    }
+
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const termino = partida.tick(dt);
+      const elTiempo = document.getElementById('sm-esc-tiempo');
+      if (elTiempo) elTiempo.textContent = partida.tiempoRestante();
+      if (termino) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+
+    renderTiles();
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
   }
 
   // ==================== METAS Y PREMIOS ====================
@@ -680,9 +892,9 @@
     const metas = estado.metas.slice().sort((a, b) => a.puntos - b.puntos);
 
     const tarjetas = metas.map((m) => {
-      const alcanzada = estado.xp >= m.puntos;
+      const alcanzada = SM.progreso.metaLista(estado, m);
       const pct = Math.min(100, Math.round((estado.xp / m.puntos) * 100));
-      let estadoTexto = `${estado.xp}/${m.puntos} XP`;
+      const pctRacha = m.rachaMinima ? Math.min(100, Math.round((estado.racha.dias / m.rachaMinima) * 100)) : 100;
       let claseExtra = '';
       if (m.reclamada) { claseExtra = 'reclamada'; }
       else if (alcanzada) { claseExtra = 'lista'; }
@@ -691,7 +903,9 @@
         <div class="sm-meta-info">
           <span class="sm-meta-nombre">${esc(m.nombre)}</span>
           <div class="sm-planeta-barra"><span style="width:${pct}%"></span></div>
-          <span class="sm-meta-puntos">${esc(estadoTexto)}</span>
+          <span class="sm-meta-puntos">${estado.xp}/${m.puntos} XP</span>
+          ${m.rachaMinima ? `<div class="sm-planeta-barra sm-barra-racha"><span style="width:${pctRacha}%"></span></div>
+          <span class="sm-meta-puntos">🔥 racha ${estado.racha.dias}/${m.rachaMinima} días</span>` : ''}
         </div>
         <span class="sm-meta-estado">${m.reclamada ? '✅' : (alcanzada ? '🎉' : '')}</span>
       </div>`;
@@ -739,9 +953,10 @@
     const rerender = () => pantallaAjustes(root, caja, ir);
 
     const filasMetas = estado.metas.slice().sort((a, b) => a.puntos - b.puntos).map((m) => {
-      const alcanzada = estado.xp >= m.puntos;
+      const alcanzada = SM.progreso.metaLista(estado, m);
+      const notaRacha = m.rachaMinima ? ` · 🔥 racha ${m.rachaMinima}d` : '';
       return `<div class="sm-meta-admin-fila">
-        <span>${m.emoji} ${esc(m.nombre)} — <b>${m.puntos} XP</b>${m.reclamada ? ' · ✅ entregado' : (alcanzada ? ' · 🎉 lista' : '')}</span>
+        <span>${m.emoji} ${esc(m.nombre)} — <b>${m.puntos} XP</b>${notaRacha}${m.reclamada ? ' · ✅ entregado' : (alcanzada ? ' · 🎉 lista' : '')}</span>
         <span class="sm-meta-admin-botones">
           ${(!m.reclamada && alcanzada) ? `<button class="btn btn-sec sm-btn-mini" data-reclamar="${m.id}">Marcar entregado</button>` : ''}
           <button class="btn btn-sec sm-btn-mini" data-eliminar="${m.id}">🗑️</button>
@@ -760,6 +975,15 @@
           <span>Sonido</span>
           <input type="checkbox" id="sm-campo-sonido" ${estado.sonido ? 'checked' : ''}>
         </label>
+
+        <div class="sm-campo">
+          <span>🔥 Reto diario y racha</span>
+          <p class="sm-muted" style="margin-bottom:8px">Cada día Santi debe ganar esta cantidad de XP jugando lo que sea (niveles, quiz o arcade). Si un día no lo cumple, la racha vuelve a 0 al abrir la app al día siguiente.</p>
+          <label class="sm-campo sm-campo-fila">
+            <span>Meta diaria de XP</span>
+            <input type="number" id="sm-campo-meta-diaria" min="10" step="10" value="${estado.metaDiariaXP}" style="max-width:100px">
+          </label>
+        </div>
 
         <div class="sm-campo">
           <span>🎯 Modo desafío (agilidad)</span>
@@ -794,6 +1018,10 @@
               <input type="text" id="sm-meta-emoji" placeholder="🎁" maxlength="4">
               <input type="number" id="sm-meta-puntos" placeholder="Puntos XP" min="10" step="10">
             </div>
+            <label class="sm-campo sm-campo-fila">
+              <span>Racha mínima (opcional)</span>
+              <input type="number" id="sm-meta-racha" placeholder="0 = sin requisito" min="0" step="1" style="max-width:100px">
+            </label>
             <button class="btn btn-sec" id="sm-btn-agregar-meta">➕ Agregar meta</button>
           </div>
         </div>
@@ -813,6 +1041,9 @@
       SM.progreso.toggleSonido(estado);
       SM.sonido.setActivo(e.target.checked);
       if (e.target.checked) SM.sonido.click();
+    });
+    root.querySelector('#sm-campo-meta-diaria').addEventListener('change', (e) => {
+      SM.progreso.actualizarMetaDiaria(estado, parseInt(e.target.value, 10));
     });
     function actualizarDesafioDesdeControles() {
       SM.progreso.actualizarDesafio(estado, {
@@ -835,9 +1066,10 @@
       const nombre = root.querySelector('#sm-meta-nombre').value.trim();
       const puntos = parseInt(root.querySelector('#sm-meta-puntos').value, 10);
       const emoji = root.querySelector('#sm-meta-emoji').value.trim();
+      const rachaMinima = parseInt(root.querySelector('#sm-meta-racha').value, 10) || null;
       if (!nombre || !puntos || puntos < 10) return;
       SM.sonido.click();
-      SM.progreso.agregarMeta(estado, { nombre, emoji, puntos });
+      SM.progreso.agregarMeta(estado, { nombre, emoji, puntos, rachaMinima });
       rerender();
     });
     root.querySelector('#sm-btn-reiniciar').addEventListener('click', () => {
@@ -852,6 +1084,7 @@
   window.SM = window.SM || {};
   window.SM.ui = {
     pantallaInicio, pantallaMundo, pantallaLeccion, pantallaJuego,
-    pantallaArcade, pantallaInvasores, pantallaPremios, pantallaLogros, pantallaAjustes,
+    pantallaArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
+    pantallaPremios, pantallaLogros, pantallaAjustes,
   };
 })();

@@ -2,7 +2,7 @@
    pantalla se pinta reemplazando el HTML de #app (ver js/ui.js). */
 (function () {
   const caja = { estado: SM.progreso.cargar() };
-  caja.estado = SM.progreso.actualizarRacha(caja.estado);
+  caja.estado = SM.progreso.actualizarProgresoDiario(caja.estado);
   SM.sonido.setActivo(caja.estado.sonido);
 
   function ir(pantalla, datos) {
@@ -15,6 +15,8 @@
       case 'juego': SM.ui.pantallaJuego(root, caja, datos.mundoId, datos.nivelId, ir); break;
       case 'arcade': SM.ui.pantallaArcade(root, caja, ir); break;
       case 'invasores': SM.ui.pantallaInvasores(root, caja, ir); break;
+      case 'memoria': SM.ui.pantallaMemoria(root, caja, ir); break;
+      case 'escalera': SM.ui.pantallaEscalera(root, caja, ir); break;
       case 'premios': SM.ui.pantallaPremios(root, caja, ir); break;
       case 'logros': SM.ui.pantallaLogros(root, caja, ir); break;
       case 'ajustes': SM.ui.pantallaAjustes(root, caja, ir); break;

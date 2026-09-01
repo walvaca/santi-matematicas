@@ -1,5 +1,12 @@
 /* SM.progreso — todo lo que se guarda en localStorage: nombre, estrellas por nivel,
-   XP, racha de días y logros. Único punto de lectura/escritura del progreso. */
+   XP, racha de días y logros. Único punto de lectura/escritura del progreso.
+
+   Reto diario y racha: cada día Santi tiene una meta de XP (`metaDiariaXP`, la
+   configura un adulto). Si la cumple, la racha sube y queda marcada como cumplida
+   para hoy. Si al abrir la app en un día nuevo el reto del último día activo NO se
+   cumplió, la racha vuelve a 0 — pedido explícito del usuario ("si no cumple los
+   retos diarios, los avances se reinician a 0"), interpretado como la RACHA (no las
+   estrellas/XP/logros ya ganados, que nunca se borran solos). */
 (function () {
   const CLAVE = 'superSantiProgreso';
 
@@ -14,16 +21,18 @@
       condicion: (e) => sumaEstrellas(e) >= 30 },
     { id: 'coleccionista-60', nombre: 'Galaxia de estrellas', icono: '✨', descripcion: 'Junta 60 estrellas en total.',
       condicion: (e) => sumaEstrellas(e) >= 60 },
-    { id: 'racha-3', nombre: 'Constancia', icono: '🔥', descripcion: 'Juega 3 días seguidos.',
+    { id: 'racha-3', nombre: 'Constancia', icono: '🔥', descripcion: 'Cumple el reto diario 3 días seguidos.',
       condicion: (e) => e.racha.dias >= 3 },
-    { id: 'racha-7', nombre: 'Semana espacial', icono: '🏆', descripcion: 'Juega 7 días seguidos.',
+    { id: 'racha-7', nombre: 'Semana espacial', icono: '🏆', descripcion: 'Cumple el reto diario 7 días seguidos.',
       condicion: (e) => e.racha.dias >= 7 },
+    { id: 'racha-14', nombre: 'Constancia estelar', icono: '🌌', descripcion: 'Cumple el reto diario 14 días seguidos.',
+      condicion: (e) => e.racha.dias >= 14 },
     { id: 'veloz', nombre: 'Veloz como un cohete', icono: '⚡', descripcion: 'Responde 15 o más en un nivel contrarreloj.',
       condicion: (e) => e.mejorContrarreloj >= 15 },
-    { id: 'arcade-cadete', nombre: 'Cadete cazador', icono: '🎮', descripcion: 'Consigue 100 puntos en Invasores Numéricos.',
-      condicion: (e) => e.arcade.mejorPuntaje >= 100 },
-    { id: 'arcade-francotirador', nombre: 'Francotirador espacial', icono: '🛸', descripcion: 'Consigue 300 puntos en Invasores Numéricos.',
-      condicion: (e) => e.arcade.mejorPuntaje >= 300 },
+    { id: 'arcade-cadete', nombre: 'Cadete cazador', icono: '🎮', descripcion: 'Consigue 100 puntos en algún juego de Arcade.',
+      condicion: (e) => Object.values(e.arcade.juegos).some((j) => j.mejorPuntaje >= 100) },
+    { id: 'arcade-francotirador', nombre: 'Francotirador espacial', icono: '🛸', descripcion: 'Consigue 300 puntos en algún juego de Arcade.',
+      condicion: (e) => Object.values(e.arcade.juegos).some((j) => j.mejorPuntaje >= 300) },
     { id: 'maestro-tablix', nombre: 'Maestro de Tablix', icono: '🪐', descripcion: '3 estrellas en todos los niveles de Tablix.',
       condicion: (e) => mundoCompleto(e, 'tablix') },
     { id: 'maestro-numeria', nombre: 'Maestro de Numeria', icono: '🌍', descripcion: '3 estrellas en todos los niveles de Numeria.',
@@ -50,12 +59,27 @@
     return mundo.niveles.every((n) => (e.estrellas[`${mundoId}:${n.id}`] || 0) >= 3);
   }
 
+  // Una meta está "lista" solo si se cumplen AMBAS condiciones — el XP a secas se
+  // puede juntar en una tarde de juego intenso, la racha no: solo sube un día a la
+  // vez, así que las metas grandes obligan a jugar de forma constante, no de golpe.
+  function metaLista(estado, meta) {
+    return estado.xp >= meta.puntos && (!meta.rachaMinima || estado.racha.dias >= meta.rachaMinima);
+  }
+
   function metasPorDefecto() {
     return [
-      { id: 'meta-roblox', nombre: '30 minutos de Roblox', emoji: '🎮', puntos: 300, reclamada: false, notificada: false },
-      { id: 'meta-pizza', nombre: 'Noche de pizza', emoji: '🍕', puntos: 700, reclamada: false, notificada: false },
-      { id: 'meta-cine', nombre: 'Ir al cine', emoji: '🎬', puntos: 1500, reclamada: false, notificada: false },
+      { id: 'meta-roblox', nombre: '30 minutos de Roblox', emoji: '🎮', puntos: 400, rachaMinima: 2, reclamada: false, notificada: false },
+      { id: 'meta-pizza', nombre: 'Noche de pizza', emoji: '🍕', puntos: 1200, rachaMinima: 5, reclamada: false, notificada: false },
+      { id: 'meta-cine', nombre: 'Ir al cine', emoji: '🎬', puntos: 3000, rachaMinima: 10, reclamada: false, notificada: false },
     ];
+  }
+
+  function arcadeJuegosPorDefecto() {
+    return {
+      invasores: { mejorPuntaje: 0, partidasJugadas: 0 },
+      memoria: { mejorPuntaje: 0, partidasJugadas: 0 },
+      escalera: { mejorPuntaje: 0, partidasJugadas: 0 },
+    };
   }
 
   function porDefecto() {
@@ -69,9 +93,11 @@
       mejorContrarreloj: 0,      // mayor cantidad de aciertos en un nivel contrarreloj
       racha: { dias: 0, ultimaFecha: null },
       sonido: true,
-      arcade: { mejorPuntaje: 0, partidasJugadas: 0 },
+      arcade: { juegos: arcadeJuegosPorDefecto() },
       metas: metasPorDefecto(),   // premios reales que un adulto configura y entrega
       desafio: { erroresPermitidos: null, segundosPorPregunta: null }, // modo agilidad opcional
+      metaDiariaXP: 60,            // XP que hay que ganar HOY para que cuente como día cumplido
+      retoDiario: { fecha: null, xpHoy: 0, cumplidoHoy: false },
     };
   }
 
@@ -90,6 +116,19 @@
     return resultado;
   }
 
+  // Bóvedas guardadas antes de que hubiera varios juegos de arcade solo tenían
+  // { mejorPuntaje, partidasJugadas } planos, y eran siempre de Invasores Numéricos.
+  function migrarArcade(guardado) {
+    const base = arcadeJuegosPorDefecto();
+    if (!guardado) return { juegos: base };
+    if (guardado.juegos) {
+      Object.keys(base).forEach((id) => { base[id] = Object.assign({}, base[id], guardado.juegos[id]); });
+      return { juegos: base };
+    }
+    base.invasores = { mejorPuntaje: guardado.mejorPuntaje || 0, partidasJugadas: guardado.partidasJugadas || 0 };
+    return { juegos: base };
+  }
+
   function cargar() {
     try {
       const crudo = localStorage.getItem(CLAVE);
@@ -102,8 +141,10 @@
         racha: Object.assign({ dias: 0, ultimaFecha: null }, guardado.racha),
         logros: guardado.logros || [],
         leccionesVistas: guardado.leccionesVistas || [],
-        arcade: Object.assign({ mejorPuntaje: 0, partidasJugadas: 0 }, guardado.arcade),
+        arcade: migrarArcade(guardado.arcade),
         desafio: Object.assign({ erroresPermitidos: null, segundosPorPregunta: null }, guardado.desafio),
+        metaDiariaXP: guardado.metaDiariaXP || 60,
+        retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
       });
     } catch (err) {
       console.error('No se pudo leer el progreso guardado', err);
@@ -115,33 +156,52 @@
     localStorage.setItem(CLAVE, JSON.stringify(estado));
   }
 
-  function hoyISO() {
+  function fechaISO(offsetDias) {
     const d = new Date();
+    d.setDate(d.getDate() + offsetDias);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
+  function hoyISO() { return fechaISO(0); }
 
-  // Se llama una vez al abrir la app: actualiza la racha de días seguidos.
-  function actualizarRacha(estado) {
+  // Se llama una vez al abrir la app: si es un día nuevo, revisa si el reto de ayer
+  // se cumplió (si no, la racha vuelve a 0) y arma el reto de hoy desde cero. También
+  // rompe la racha si el último día activo NO fue literalmente ayer — saltarse días
+  // enteros sin abrir la app cuenta igual que no cumplir el reto, no es una manera de
+  // "congelar" la racha.
+  function actualizarProgresoDiario(estado) {
     const hoy = hoyISO();
-    if (estado.racha.ultimaFecha === hoy) return estado;
-    if (!estado.racha.ultimaFecha) {
-      estado.racha.dias = 1;
-    } else {
-      const ayer = new Date();
-      ayer.setDate(ayer.getDate() - 1);
-      const ayerISO = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, '0')}-${String(ayer.getDate()).padStart(2, '0')}`;
-      estado.racha.dias = estado.racha.ultimaFecha === ayerISO ? estado.racha.dias + 1 : 1;
+    if (estado.retoDiario.fecha === hoy) return estado;
+    const esPrimeraVez = !estado.retoDiario.fecha;
+    const fueAyer = estado.retoDiario.fecha === fechaISO(-1);
+    if (!esPrimeraVez && (!estado.retoDiario.cumplidoHoy || !fueAyer)) {
+      estado.racha.dias = 0;
     }
     estado.racha.ultimaFecha = hoy;
+    estado.retoDiario = { fecha: hoy, xpHoy: 0, cumplidoHoy: false };
     guardar(estado);
     return estado;
   }
 
-  // Revisa si el XP actual alcanzó alguna meta todavía no notificada (se llama tras sumar XP).
+  // Único punto donde se suma XP: además del total, alimenta el reto diario y, si lo
+  // completa por primera vez hoy, sube la racha en el momento (no hay que esperar a
+  // mañana para verlo reflejado). Devuelve true si el reto se acaba de cumplir ahora.
+  function sumarXP(estado, cantidad) {
+    estado.xp += cantidad;
+    estado.retoDiario.xpHoy += cantidad;
+    if (!estado.retoDiario.cumplidoHoy && estado.retoDiario.xpHoy >= estado.metaDiariaXP) {
+      estado.retoDiario.cumplidoHoy = true;
+      estado.racha.dias += 1;
+      return true;
+    }
+    return false;
+  }
+
+  // Revisa si el progreso actual alcanzó alguna meta todavía no notificada (se llama
+  // tras sumar XP o subir la racha).
   function revisarMetasAlcanzadas(estado) {
     const nuevas = [];
     estado.metas.forEach((m) => {
-      if (!m.notificada && estado.xp >= m.puntos) {
+      if (!m.notificada && metaLista(estado, m)) {
         m.notificada = true;
         nuevas.push(m);
       }
@@ -149,14 +209,18 @@
     return nuevas;
   }
 
-  function agregarMeta(estado, { nombre, emoji, puntos }) {
+  function agregarMeta(estado, { nombre, emoji, puntos, rachaMinima }) {
+    const puntosNum = Math.max(10, Math.round(puntos));
+    const rachaNum = rachaMinima ? Math.max(0, Math.round(rachaMinima)) : null;
     estado.metas.push({
       id: `meta-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       nombre: nombre.trim().slice(0, 40),
       emoji: (emoji || '🎁').trim().slice(0, 4) || '🎁',
-      puntos: Math.max(10, Math.round(puntos)),
+      puntos: puntosNum,
+      rachaMinima: rachaNum,
       reclamada: false,
-      notificada: estado.xp >= puntos, // si ya la cumplió antes de crearla, no hace falta re-anunciarla
+      // si ya la cumplía antes de crearla, no hace falta re-anunciarla
+      notificada: metaLista(estado, { puntos: puntosNum, rachaMinima: rachaNum }),
     });
     guardar(estado);
     return estado;
@@ -196,7 +260,7 @@
     const xpGanado = esQuiz
       ? estrellasGanadas * 25 + (primeraVez ? 25 : 0)
       : estrellasGanadas * 15 + (primeraVez ? 15 : 0);
-    estado.xp += xpGanado;
+    const retoCumplidoAhora = sumarXP(estado, xpGanado);
 
     if (!esQuiz && estrellasGanadas >= 1) {
       const mundo = SM.mundos.obtener(mundoId);
@@ -221,19 +285,22 @@
 
     guardar(estado);
     return {
-      estrellasAntes, esRecord, xpGanado, logrosNuevos, metasNuevas, esQuiz,
+      estrellasAntes, esRecord, xpGanado, logrosNuevos, metasNuevas, esQuiz, retoCumplidoAhora,
       aprobado: esQuiz ? estrellasGanadas >= 1 : null,
     };
   }
 
-  // Registra el resultado de una partida de un mini-juego de arcade (ej. Invasores Numéricos).
-  function registrarResultadoArcade(estado, puntaje) {
-    estado.arcade.partidasJugadas += 1;
-    const esRecord = puntaje > estado.arcade.mejorPuntaje;
-    if (esRecord) estado.arcade.mejorPuntaje = puntaje;
+  // Registra el resultado de una partida de un mini-juego de arcade (juegoId: ver
+  // SM.arcade.JUEGOS, ej. "invasores", "memoria", "escalera").
+  function registrarResultadoArcade(estado, juegoId, puntaje) {
+    if (!estado.arcade.juegos[juegoId]) estado.arcade.juegos[juegoId] = { mejorPuntaje: 0, partidasJugadas: 0 };
+    const stats = estado.arcade.juegos[juegoId];
+    stats.partidasJugadas += 1;
+    const esRecord = puntaje > stats.mejorPuntaje;
+    if (esRecord) stats.mejorPuntaje = puntaje;
 
     const xpGanado = Math.round(puntaje / 5);
-    estado.xp += xpGanado;
+    const retoCumplidoAhora = sumarXP(estado, xpGanado);
 
     const logrosNuevos = [];
     LOGROS.forEach((l) => {
@@ -245,7 +312,7 @@
     const metasNuevas = revisarMetasAlcanzadas(estado);
 
     guardar(estado);
-    return { esRecord, xpGanado, logrosNuevos, metasNuevas, mejorPuntaje: estado.arcade.mejorPuntaje };
+    return { esRecord, xpGanado, logrosNuevos, metasNuevas, retoCumplidoAhora, mejorPuntaje: stats.mejorPuntaje };
   }
 
   // El desbloqueo se rige por `progresoMaximo` (el índice más alto ya alcanzado),
@@ -311,11 +378,17 @@
     return estado;
   }
 
+  function actualizarMetaDiaria(estado, xp) {
+    estado.metaDiariaXP = Math.max(10, Math.round(xp) || 60);
+    guardar(estado);
+    return estado;
+  }
+
   window.SM = window.SM || {};
   window.SM.progreso = {
-    LOGROS, cargar, guardar, actualizarRacha, registrarResultadoNivel, registrarResultadoArcade,
-    nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido,
+    LOGROS, cargar, guardar, actualizarProgresoDiario, registrarResultadoNivel, registrarResultadoArcade,
+    nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, metaLista,
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta,
-    resetearNivel, resetearPlaneta, actualizarDesafio,
+    resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria,
   };
 })();

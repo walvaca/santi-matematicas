@@ -173,10 +173,33 @@ p{line-height:1.5}
 .sm-logro-desc{font-size:11px;color:var(--muted)}
 
 /* ---------- arcade: menú ---------- */
+.sm-arcade-lista{display:flex;flex-direction:column;gap:12px}
 .sm-arcade-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
 .sm-arcade-emoji{font-size:44px}
 .sm-arcade-card p{color:var(--muted);font-size:13.5px;margin-bottom:6px}
-.sm-arcade-card .btn{margin-top:8px}
+.sm-arcade-card .btn{margin-top:8px;width:auto;padding-left:24px;padding-right:24px}
+
+/* ---------- reto diario ---------- */
+.sm-reto-diario{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--accent2);border-radius:12px;padding:10px 12px;margin-bottom:14px}
+.sm-reto-diario.cumplido{border-color:var(--green)}
+.sm-reto-diario-emoji{font-size:26px;flex-shrink:0}
+.sm-barra-racha span{background:var(--accent2)}
+.sm-reto-chip{border-color:var(--accent2)!important}
+
+/* ---------- memoria espacial ---------- */
+.sm-memoria-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sm-carta-memoria{aspect-ratio:1/1;background:var(--card2);border:2px solid var(--border);border-radius:10px;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:4px;text-align:center;transition:transform .15s}
+.sm-carta-memoria:disabled{opacity:1}
+.sm-carta-memoria.volteada{background:var(--card);border-color:var(--accent);color:var(--accent)}
+.sm-carta-memoria.encontrada{background:rgba(63,214,122,.18);border-color:var(--green);color:var(--green)}
+
+/* ---------- escalera numérica ---------- */
+.sm-escalera-info{display:flex;flex-direction:column;gap:2px;text-align:center;margin-bottom:16px;font-weight:700}
+.sm-escalera-tiles{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.sm-escalera-tiles.sm-shake{animation:smShake .35s}
+.sm-tile-escalera{width:64px;height:64px;border-radius:14px;background:var(--card2);border:2px solid var(--border);font-size:20px;font-weight:800}
+.sm-tile-escalera.acierto{background:rgba(63,214,122,.25);border-color:var(--green);color:var(--green)}
+.sm-tile-escalera:disabled{opacity:.5}
 
 /* ---------- invasores numéricos ---------- */
 .sm-pantalla-invasores{padding-bottom:10px}
