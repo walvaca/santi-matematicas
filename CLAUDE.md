@@ -306,6 +306,33 @@ en el arcade — el arcade mezcla reglas de varios temas a la vez, no tiene un �
   regala la respuesta de esa pregunta puntual. Si se agrega un planeta nuevo, hay
   que agregarle también su entrada en `METODOS` o el botón no mostrará nada.
 
+## Lecciones (`SM.lecciones.obtener`): método Singapur CPA + lenguaje de primer grado
+Pedido explícito del usuario: que las explicaciones de cada tema sean "más
+explicativas... como si fuera un niño de primer grado, con imágenes y juegos de
+palabras", aplicando estrategias pedagógicas comprobadas — se usó el método Singapur
+**CPA (Concreto → Pictórico → Abstracto)**: cada lección de `LECCIONES` en
+`lecciones.js` empieza con un ejemplo de objetos cotidianos que se pueden imaginar
+(galletas, chocolates, canicas), sigue con un dibujo/cuadrícula que representa lo
+mismo, y termina con el número y el procedimiento. Las 7 lecciones (7-9 pasos cada
+una, antes 6-7) también incluyen al menos un truco con rima o juego de palabras
+(función `truco()`, caja destacada con 💡) y un cierre que conecta el tema con la
+meta de Santi de ser programador (ej. "x" en álgebra = variable en código).
+- **`p.texto` se pinta con `esc()` en `ui.js`** (texto plano) — nunca meter HTML ahí.
+  `p.visual` sí se inserta crudo, por eso las tarjetas/cajitas van en `visual`.
+- Helpers nuevos en `lecciones.js`, todos generan HTML vía CSS (sin imágenes
+  externas): `emojis(cant, simbolo)` (fila de objetos concretos), `grupos(n,
+  porGrupo, simbolo)` (cajas "+" para multiplicar/dividir en concreto), `rectaNumerica(min,
+  max, marcados)` (recta con puntos resaltados — cuidado con rangos muy grandes,
+  cada número es un nodo; el contenedor hace scroll horizontal si no cabe),
+  `bloques(centenas, decenas, unidades)` (valor posicional), y `truco(texto)` (caja
+  de mnemotecnia). Se suman a los ya existentes `puntos()`, `pizzaDemo()`,
+  `dosPizzas()`, `balanza()`. CSS de todos en `index.html` junto a los estilos de
+  fracciones/álgebra existentes.
+- Si se agrega un planeta nuevo (u otro paso a uno existente), seguir el mismo
+  patrón CPA y no olvidar que `METODOS` (profesor virtual, arriba) es un contenido
+  aparte — no se reescribió con este cambio, sigue siendo la ayuda corta "bajo
+  pedido", mientras que `LECCIONES` es la enseñanza principal.
+
 **Balance (revisado — el arcade NO debe ser el camino fácil):** el usuario reportó
 que Santi lograba el reto diario y hasta las metas de premios jugando solo arcade,
 sin tocar los planetas de matemáticas de verdad. Dos ajustes, a propósito, que no
