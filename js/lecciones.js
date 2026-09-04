@@ -85,10 +85,57 @@
         { titulo: '¡A resolver el misterio!', texto: 'El álgebra es solo un acertijo con reglas fijas. Encuentra la operación contraria y despeja x. ¡Tú puedes, Santi!' },
       ],
     },
+    radix: {
+      titulo: 'Raíz cuadrada, el tema nuevo del cole',
+      pasos: [
+        { titulo: 'Bienvenido a Radix', texto: 'Este es el tema que están viendo ahora en el colegio. La raíz cuadrada (√) es la operación contraria a elevar al cuadrado: te pregunta "¿qué número multiplicado por sí mismo da este resultado?".' },
+        { titulo: 'Un ejemplo con dibujo', texto: '√9 = 3 porque 3 × 3 = 9. Mira: si acomodas 9 puntos en un cuadrado perfecto, te queda de 3 filas por 3 columnas — por eso se llama "cuadrada".', visual: puntos(3, 3) },
+        { titulo: '¡Ya sabes esto!', texto: 'Como ya dominas las tablas en Tablix, sacar raíces es fácil: piensa "¿qué número por sí mismo da este resultado?". Para √64, piensa en la tabla: 8 × 8 = 64, entonces √64 = 8.' },
+        { titulo: 'Los cuadrados perfectos', texto: 'Apréndete estos de memoria y vas a volar: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144 — son 1² hasta 12², los mismos números de tus tablas.' },
+        { titulo: 'Cuando no es exacto', texto: 'No todo número tiene raíz exacta. √50 no da un número entero, pero puedes decir "está entre 7 y 8", porque 7×7=49 y 8×8=64, y 50 queda en el medio.' },
+        { titulo: '¡A conquistar Radix!', texto: 'Usa tus tablas como ayuda y vas a dominar las raíces cuadradas más rápido de lo que crees. ¡Vamos, Santi!' },
+      ],
+    },
+  };
+
+  // "Profesor virtual": una explicación corta y siempre disponible del MÉTODO general
+  // de cada planeta (con un ejemplo propio, distinto al de la pregunta en pantalla) —
+  // para cuando Santi necesita un empujón paso a paso sin que se le regale la
+  // respuesta de la pregunta que tiene enfrente. Ver botón "🤖" en la pantalla de juego.
+  const METODOS = {
+    tablix: { titulo: 'Cómo sacar una tabla de multiplicar', pasos: [
+      'Piensa en el primer número como "grupos", y el segundo como "cuántos hay en cada grupo".',
+      'Usa un truco: dobla, cuenta salteado, o descompón el número más difícil en uno fácil (como el 10).',
+    ], ejemplo: 'Ejemplo: 6 × 7 = 6 × 5 + 6 × 2 = 30 + 12 = 42' },
+    numeria: { titulo: 'Cómo sumar y restar paso a paso', pasos: [
+      'Alinea los números por su valor: unidades con unidades, decenas con decenas.',
+      'Opera desde la derecha hacia la izquierda. Si te pasas de 9 al sumar, "llevas" 1 a la siguiente columna; si al restar te falta, "pides prestado" a la decena.',
+    ], ejemplo: 'Ejemplo: 48 + 27 → unidades 8+7=15 (escribo 5, llevo 1), decenas 4+2+1=7 → 75' },
+    multiplux: { titulo: 'Cómo multiplicar números grandes', pasos: [
+      'Descompón el número más grande en decenas y unidades.',
+      'Multiplica cada parte por separado y luego suma los resultados.',
+    ], ejemplo: 'Ejemplo: 34 × 6 → 30×6=180, 4×6=24 → 180+24=204' },
+    divisorix: { titulo: 'Cómo dividir paso a paso', pasos: [
+      'Pregúntate "¿cuántas veces cabe el divisor en el dividendo?" — usa tus tablas de multiplicar al revés.',
+      'Multiplica el divisor por tu respuesta: si no te da exacto el dividendo, lo que falta es el residuo.',
+    ], ejemplo: 'Ejemplo: 45 ÷ 9 → tabla del 9: 9×5=45, entonces 45÷9=5 exacto' },
+    fracciolandia: { titulo: 'Cómo trabajar con fracciones', pasos: [
+      'El de abajo (denominador) dice en cuántas partes se cortó el todo; el de arriba (numerador), cuántas partes tienes.',
+      'Con el mismo denominador, para sumar o restar solo operas los de arriba — el de abajo queda igual.',
+    ], ejemplo: 'Ejemplo: 2/6 + 3/6 = (2+3)/6 = 5/6' },
+    incognita: { titulo: 'Cómo despejar el número misterioso (x)', pasos: [
+      'Piensa en una balanza: lo que le hagas a un lado, hazlo también al otro para que siga en equilibrio.',
+      'Si x está sumando, resta ese número de ambos lados. Si está multiplicando, divide ambos lados entre ese número.',
+    ], ejemplo: 'Ejemplo: x + 6 = 14 → x = 14 − 6 = 8' },
+    radix: { titulo: 'Cómo sacar una raíz cuadrada', pasos: [
+      'Pregúntate "¿qué número multiplicado por sí mismo me da este resultado?".',
+      'Prueba con los cuadrados que ya conoces: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144 — hasta encontrar el que coincide.',
+    ], ejemplo: 'Ejemplo: √81 → ¿qué número × sí mismo = 81? → 9×9=81 → √81=9' },
   };
 
   function obtener(mundoId) { return LECCIONES[mundoId] || null; }
+  function metodo(mundoId) { return METODOS[mundoId] || null; }
 
   window.SM = window.SM || {};
-  window.SM.lecciones = { obtener };
+  window.SM.lecciones = { obtener, metodo };
 })();

@@ -17,6 +17,8 @@
       case 'invasores': SM.ui.pantallaInvasores(root, caja, ir); break;
       case 'memoria': SM.ui.pantallaMemoria(root, caja, ir); break;
       case 'escalera': SM.ui.pantallaEscalera(root, caja, ir); break;
+      case 'agujeros': SM.ui.pantallaAgujeros(root, caja, ir); break;
+      case 'asteroides': SM.ui.pantallaAsteroides(root, caja, ir); break;
       case 'premios': SM.ui.pantallaPremios(root, caja, ir); break;
       case 'logros': SM.ui.pantallaLogros(root, caja, ir); break;
       case 'ajustes': SM.ui.pantallaAjustes(root, caja, ir); break;

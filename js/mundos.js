@@ -117,6 +117,21 @@
         { id: 'quiz', esQuiz: true, nombre: 'Quiz Final de Incógnita', dificultad: 4, generador: 'algebra', params: { tipo: 'mixtoTodo' }, preguntas: 15 },
       ],
     },
+    {
+      id: 'radix', orden: 7, nombre: 'Radix', subtitulo: 'Raíz cuadrada',
+      emoji: '🛸', color: '#2dd4bf',
+      niveles: [
+        { id: 1, nombre: 'Raíces fáciles (hasta 25)', dificultad: 1, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 5 }, preguntas: 10 },
+        { id: 2, nombre: 'Raíces hasta 49', dificultad: 1, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 7 }, preguntas: 10 },
+        { id: 3, nombre: 'Raíces hasta 100', dificultad: 2, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 10 }, preguntas: 10 },
+        { id: 4, nombre: 'Raíces hasta 144', dificultad: 2, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 12 }, preguntas: 10 },
+        { id: 5, nombre: 'Cuadrados perfectos', dificultad: 2, generador: 'raices', params: { tipo: 'cuadrados', minN: 1, maxN: 12 }, preguntas: 10 },
+        { id: 6, nombre: 'Mezcla de raíces y cuadrados', dificultad: 3, generador: 'raices', params: { tipo: 'mixtoBasico', minN: 1, maxN: 12 }, preguntas: 10 },
+        { id: 7, nombre: '¿Entre qué números está?', dificultad: 4, generador: 'raices', params: { tipo: 'estimar' }, preguntas: 8 },
+        { id: 8, nombre: '¡Contrarreloj!', dificultad: 4, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 12 }, contrarreloj: { segundos: 60, umbralEstrellas: [6, 10, 15] } },
+        { id: 'quiz', esQuiz: true, nombre: 'Quiz Final de Radix', dificultad: 4, generador: 'raices', params: { tipo: 'mixtoTodo' }, preguntas: 15 },
+      ],
+    },
   ];
 
   function obtener(mundoId) {

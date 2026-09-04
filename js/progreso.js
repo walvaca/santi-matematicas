@@ -79,6 +79,8 @@
       invasores: { mejorPuntaje: 0, partidasJugadas: 0 },
       memoria: { mejorPuntaje: 0, partidasJugadas: 0 },
       escalera: { mejorPuntaje: 0, partidasJugadas: 0 },
+      agujeros: { mejorPuntaje: 0, partidasJugadas: 0 },
+      asteroides: { mejorPuntaje: 0, partidasJugadas: 0 },
     };
   }
 

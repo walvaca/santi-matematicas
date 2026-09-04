@@ -327,8 +327,41 @@
     return elegir([algSuma, algResta, algMultiplicacion])();
   }
 
+  // ================= RAÍZ CUADRADA (Radix) =================
+  function raizBasica(params) {
+    const n = randInt(params.minN || 1, params.maxN || 12);
+    const cuadrado = n * n;
+    return construirNumero(`√${cuadrado} = ?`, n, `${n} × ${n} = ${cuadrado}, entonces √${cuadrado} = ${n}`);
+  }
+  function cuadradosPerfectos(params) {
+    const n = randInt(params.minN || 1, params.maxN || 12);
+    return construirNumero(`${n}² = ?`, n * n, `${n} × ${n} = ${n * n}`);
+  }
+  function estimarRaiz() {
+    const nBase = randInt(2, 11);
+    const cuadradoBase = nBase * nBase;
+    const cuadradoSiguiente = (nBase + 1) * (nBase + 1);
+    const numero = randInt(cuadradoBase + 1, cuadradoSiguiente - 1);
+    const correcta = `${nBase} y ${nBase + 1}`;
+    const candidatos = mezclar([`${Math.max(nBase - 1, 0)} y ${nBase}`, `${nBase + 1} y ${nBase + 2}`, `${nBase} y ${nBase + 2}`]);
+    return construirMultiple(`¿Entre qué dos números está √${numero}?`, correcta, candidatos,
+      `${nBase}² = ${cuadradoBase} y ${nBase + 1}² = ${cuadradoSiguiente}. Como ${cuadradoBase} < ${numero} < ${cuadradoSiguiente}, √${numero} está entre ${nBase} y ${nBase + 1}`);
+  }
+  function raices(params) {
+    if (params.tipo === 'cuadrados') return cuadradosPerfectos(params);
+    if (params.tipo === 'estimar') return estimarRaiz();
+    if (params.tipo === 'mixtoBasico') return elegir([raizBasica, cuadradosPerfectos])(params);
+    if (params.tipo === 'mixtoTodo') {
+      const r = Math.random();
+      if (r < 0.4) return raizBasica({ minN: 1, maxN: 12 });
+      if (r < 0.8) return cuadradosPerfectos({ minN: 1, maxN: 12 });
+      return estimarRaiz();
+    }
+    return raizBasica(params);
+  }
+
   // ================= despacho general =================
-  const GENERADORES = { tablas, sumaResta, multiplicacion, division, fracciones, algebra };
+  const GENERADORES = { tablas, sumaResta, multiplicacion, division, fracciones, algebra, raices };
   function generar(nombre, params) {
     const fn = GENERADORES[nombre];
     if (!fn) throw new Error(`Generador desconocido: ${nombre}`);

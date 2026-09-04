@@ -18,6 +18,10 @@
       descripcion: 'Voltea cartas y encuentra las parejas de operación y resultado antes de que se acabe el tiempo.' },
     { id: 'escalera', nombre: 'Escalera Numérica', emoji: '🪜',
       descripcion: 'Toca los números en orden de menor a mayor lo más rápido posible para subir escalones.' },
+    { id: 'agujeros', nombre: 'Agujeros Negros', emoji: '🕳️',
+      descripcion: 'Números aparecen un instante en los agujeros — tócalos rápido si cumplen la regla antes de que se los trague el agujero negro.' },
+    { id: 'asteroides', nombre: 'Esquiva Asteroides', emoji: '☄️',
+      descripcion: 'Mueve tu nave entre los 3 carriles: choca con los asteroides correctos y esquiva los que no cumplan la regla.' },
   ];
 
   // ==================== INVASORES NUMÉRICOS ====================
@@ -295,6 +299,164 @@
     };
   }
 
+  // ==================== AGUJEROS NEGROS ====================
+  // "Whack-a-mole" con regla: los huecos se iluminan un instante con un número;
+  // hay que tocarlos mientras están activos si cumplen la regla (reusa REGLAS).
+  const NUM_HUECOS = 9;
+  function crearPartidaAgujeros(duracionSegundos) {
+    let tiempoRestante = duracionSegundos || 60;
+    let puntaje = 0, vidas = 3, combo = 0, comboMax = 0;
+    let reglaActual = elegir(REGLAS)();
+    let tiempoParaCambiarRegla = DURACION_REGLA;
+    let terminada = false;
+    let acumuladorSpawn = 0;
+    const huecos = Array.from({ length: NUM_HUECOS }, (_, i) => ({ id: i, activo: false, etiqueta: '', esCorrecta: false, tiempoVida: 0 }));
+
+    function intervaloSpawnMs() { return Math.max(480, 1050 - puntaje * 4); }
+    function duracionHuecoMs() { return Math.max(650, 1250 - puntaje * 3); }
+
+    return {
+      huecos: () => huecos,
+      puntaje: () => puntaje,
+      vidas: () => vidas,
+      reglaActual: () => reglaActual,
+      tiempoRestante: () => Math.max(0, Math.ceil(tiempoRestante)),
+      terminada: () => terminada,
+      comboMax: () => comboMax,
+
+      tocar(id) {
+        const h = huecos[id];
+        if (terminada || !h.activo) return { resultado: 'ignorado' };
+        h.activo = false;
+        if (h.esCorrecta) {
+          combo++; comboMax = Math.max(comboMax, combo);
+          const puntos = 8 * Math.min(combo, 5);
+          puntaje += puntos;
+          return { resultado: 'acierto', puntos };
+        }
+        combo = 0;
+        vidas--;
+        if (vidas <= 0) { vidas = 0; terminada = true; }
+        return { resultado: 'fallo' };
+      },
+
+      tick(dtSegundos) {
+        if (terminada) return { terminada: true, reglaNueva: false };
+        tiempoRestante -= dtSegundos;
+        if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
+        tiempoParaCambiarRegla -= dtSegundos;
+        let reglaNueva = false;
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegir(REGLAS)(); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+
+        huecos.forEach((h) => {
+          if (h.activo) {
+            h.tiempoVida -= dtSegundos * 1000;
+            if (h.tiempoVida <= 0) {
+              h.activo = false;
+              if (h.esCorrecta) combo = 0;
+            }
+          }
+        });
+
+        acumuladorSpawn += dtSegundos * 1000;
+        if (acumuladorSpawn >= intervaloSpawnMs()) {
+          acumuladorSpawn = 0;
+          const libres = huecos.filter((h) => !h.activo);
+          if (libres.length) {
+            const h = elegir(libres);
+            const valor = reglaActual.generarValor();
+            h.activo = true;
+            h.etiqueta = reglaActual.etiqueta(valor);
+            h.esCorrecta = reglaActual.esCorrecta(valor);
+            h.tiempoVida = duracionHuecoMs();
+          }
+        }
+
+        return { terminada: false, reglaNueva };
+      },
+    };
+  }
+
+  // ==================== ESQUIVA ASTEROIDES ====================
+  // Nave en 3 carriles: hay que moverse al carril del asteroide correcto antes de
+  // que llegue abajo, y esquivar los que no cumplan la regla (reusa REGLAS).
+  const CARRILES = 3;
+  function crearPartidaAsteroides(duracionSegundos) {
+    let tiempoRestante = duracionSegundos || 75;
+    let carrilActual = 1;
+    let puntaje = 0, vidas = 3, combo = 0, comboMax = 0;
+    let terminada = false;
+    let objetos = [];
+    let reglaActual = elegir(REGLAS)();
+    let tiempoParaCambiarRegla = DURACION_REGLA;
+    let acumuladorSpawn = 0;
+    let contadorId = 0;
+
+    function velocidad() { return Math.min(2.3, 1 + puntaje / 110); }
+
+    return {
+      objetos: () => objetos,
+      carrilActual: () => carrilActual,
+      puntaje: () => puntaje,
+      vidas: () => vidas,
+      reglaActual: () => reglaActual,
+      tiempoRestante: () => Math.max(0, Math.ceil(tiempoRestante)),
+      terminada: () => terminada,
+      comboMax: () => comboMax,
+
+      moverA(carril) { carrilActual = Math.max(0, Math.min(CARRILES - 1, carril)); },
+
+      tick(dtSegundos) {
+        if (terminada) return { terminada: true, reglaNueva: false };
+        tiempoRestante -= dtSegundos;
+        if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
+        tiempoParaCambiarRegla -= dtSegundos;
+        let reglaNueva = false;
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegir(REGLAS)(); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+
+        const avance = dtSegundos * 0.4 * velocidad();
+        objetos.forEach((o) => { o.distancia += avance; });
+
+        const restantes = [];
+        objetos.forEach((o) => {
+          if (o.distancia >= 1) {
+            if (o.carril === carrilActual) {
+              if (o.esCorrecta) {
+                combo++; comboMax = Math.max(comboMax, combo);
+                puntaje += 6 * Math.min(combo, 5);
+              } else {
+                combo = 0;
+                vidas--;
+                if (vidas <= 0) { vidas = 0; terminada = true; }
+              }
+            } else if (o.esCorrecta) {
+              combo = 0;
+            }
+          } else {
+            restantes.push(o);
+          }
+        });
+        objetos = restantes;
+
+        acumuladorSpawn += dtSegundos * 1000;
+        const intervalo = Math.max(480, 950 / velocidad());
+        if (acumuladorSpawn >= intervalo) {
+          acumuladorSpawn = 0;
+          const valor = reglaActual.generarValor();
+          objetos.push({
+            id: contadorId++, carril: randInt(0, CARRILES - 1), distancia: 0,
+            etiqueta: reglaActual.etiqueta(valor), esCorrecta: reglaActual.esCorrecta(valor),
+          });
+        }
+
+        return { terminada, reglaNueva };
+      },
+    };
+  }
+
   window.SM = window.SM || {};
-  window.SM.arcade = { JUEGOS, crearPartidaInvasores, crearPartidaMemoria, crearPartidaEscalera };
+  window.SM.arcade = {
+    JUEGOS, crearPartidaInvasores, crearPartidaMemoria, crearPartidaEscalera,
+    crearPartidaAgujeros, crearPartidaAsteroides,
+  };
 })();

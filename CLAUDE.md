@@ -48,7 +48,7 @@ porque el Service Worker no se registra ahí. Probar siempre en viewport móvil
 (es el uso real: celular de Santi) y, tras la primera carga, en modo avión para
 confirmar que el Service Worker sirve la app sin internet.
 
-## Contenido: los 6 planetas (`js/mundos.js`)
+## Contenido: los 7 planetas (`js/mundos.js`)
 Orden fijo por prioridad/dificultad. **Todos los planetas están visibles desde el
 inicio** (no se obliga a repasar lo que Santi ya sabe), pero **dentro de cada
 planeta los niveles se desbloquean en secuencia** (hace falta al menos 1 estrella
@@ -70,6 +70,11 @@ en un nivel para abrir el siguiente).
    completo, que queda fuera de alcance).
 6. **Incógnita** (9 niveles) — álgebra básica: "número misterioso", ecuaciones
    simples con metáfora de balanza, patrones crecientes y decrecientes por separado.
+7. **Radix** (9 niveles) — raíz cuadrada, agregado a pedido explícito del usuario
+   porque es el tema que Santi está viendo AHORA en el colegio. Raíces de cuadrados
+   perfectos (1-144, los mismos números de las tablas hasta el 12 — se le recuerda a
+   Santi esa conexión en la lección), cuadrados perfectos (la inversa, n²), y
+   "¿entre qué números está?" para estimar raíces no exactas (nivel Experto).
 
 Cada nivel tiene una **etiqeta de dificultad 1-4** (Fácil/Medio/Difícil/Experto,
 campo `dificultad` en `mundos.js`, constantes de color en `SM.mundos.DIFICULTADES`)
@@ -210,46 +215,76 @@ lo ignora si el nivel es contrarreloj o el quiz final, que ya tienen su propio r
   `correctas / nivel.preguntas` fijo) para no penalizar preguntas que nunca se
   llegaron a mostrar.
 
-## Arcade: 3 mini-juegos a elegir (`js/arcade.js`)
+## Arcade: 5 mini-juegos a elegir (`js/arcade.js`)
 Pestaña "🕹️ Arcade" en la barra inferior → `SM.ui.pantallaArcade` es un MENÚ (no un
 solo juego): lista `SM.arcade.JUEGOS` con tarjeta + mejor puntaje + botón jugar por
-cada uno. Se agregaron 2 juegos más a Invasores Numéricos a pedido explícito del
-usuario ("crea más juegos, Santi debe escoger entre varios para que no se aburra") —
-cada uno con una mecánica de interacción distinta a propósito, no son 3 variantes
-del mismo juego:
+cada uno. Empezó con 1, luego 3, y ahora 5 — cada ronda de "más juegos" fue a pedido
+explícito (primero "que Santi escoja entre varios", después "juegos futuristas del
+espacio, muy divertidos") — cada uno con una mecánica de interacción distinta a
+propósito, nunca variantes repetidas del mismo juego:
 
 1. **Invasores Numéricos** (`crearPartidaInvasores`, `pantallaInvasores`) — reflejos:
    naves con números (o fracciones) caen del cielo; arriba se muestra una **regla**
    que rota cada ~18s ("¡Dispara a los múltiplos de 7!", pares/impares, fracciones
    mayores/menores que 1/2, etc.); tocar una nave que cumple la regla suma puntos
    con combo (se reinicia si fallas o si se te escapa una correcta sin disparar);
-   3 vidas, partida de 90s, la velocidad de caída/aparición sube con el puntaje.
+   3 vidas, partida de 75s, la velocidad de caída/aparición sube con el puntaje.
 2. **Memoria Espacial** (`crearPartidaMemoria`, `pantallaMemoria`) — memoria, sin
    presión de reflejos: 8 pares de cartas (operación ↔ resultado, ej. "7 × 8" con
    "56"), voltea de a 2 para encontrar parejas; `generarHechosUnicos` evita
    resultados repetidos entre pares para que no haya coincidencias ambiguas;
-   partida de 120s, combo por aciertos seguidos.
+   partida de 100s, combo por aciertos seguidos.
 3. **Escalera Numérica** (`crearPartidaEscalera`, `pantallaEscalera`) — orden bajo
    presión: 5 números en pantalla, hay que tocarlos de menor a mayor lo más rápido
    posible; cada escalón completado sube la dificultad (rango de números más
-   grande) y genera una ronda nueva; 3 vidas, partida de 90s.
+   grande) y genera una ronda nueva; 3 vidas, partida de 75s.
+4. **Agujeros Negros** (`crearPartidaAgujeros`, `pantallaAgujeros`) — "whack-a-mole"
+   con regla (reusa el mismo banco `REGLAS` de Invasores): grilla de 9 huecos, uno
+   se ilumina un instante con un número — hay que tocarlo mientras está activo si
+   cumple la regla, antes de que "se lo trague" el agujero. 3 vidas, partida de 60s,
+   la ventana de tiempo para tocar se acorta con el puntaje.
+5. **Esquiva Asteroides** (`crearPartidaAsteroides`, `pantallaAsteroides`) — nave en
+   3 carriles (tap en un carril para moverse ahí); asteroides con números bajan por
+   los carriles, hay que estar en el carril correcto cuando el asteroide llega abajo
+   si cumple la regla (choque = puntos), o en cualquier otro carril si no la cumple
+   (esquivarlo). 3 vidas, partida de 75s.
 
 Cada `crearPartidaX()` lleva solo el estado/puntaje (puro, sin DOM) — la animación
 usa `requestAnimationFrame` dentro de su pantalla correspondiente, con el mismo
-patrón vanilla que ya usaba Invasores (sin canvas). Los 3 comparten la pantalla de
+patrón vanilla de siempre (sin canvas). Agujeros Negros y Esquiva Asteroides evitan
+reconstruir todo el HTML en cada frame (a diferencia de los 3 primeros, que sí lo
+hacían y no importaba por ser pocos elementos) — actualizan solo los nodos DOM que
+cambiaron de estado, porque un huequito o un carril con animación de acierto/fallo
+se ve mal si el siguiente frame lo pisa a los 16ms. Los 5 comparten la pantalla de
 resultados (`mostrarResultadoArcade` en `ui.js`, un solo lugar: registra el
 resultado, celebra récord/logros/metas/reto diario, ofrece reintentar o volver).
 
 `progreso.arcade.juegos` guarda mejor puntaje y partidas jugadas **por juego**
-(`{ invasores: {...}, memoria: {...}, escalera: {...} }` — antes era un solo
-objeto plano, ahora es multi-juego; `migrarArcade()` en `progreso.js` convierte
-bóvedas viejas sin romper el mejor puntaje ya guardado de Invasores). El puntaje de
-cualquier partida da algo de XP al pool global vía `registrarResultadoArcade(estado,
-juegoId, puntaje)` y puede desbloquear los logros "Cadete cazador"/"Francotirador
-espacial" (ahora se fijan en el mejor puntaje de CUALQUIER juego de arcade, no solo
-Invasores). Para agregar un cuarto juego: seguir el mismo patrón (función pura
-`crearPartidaX` en `arcade.js` + pantalla en `ui.js` que llama a
+(`{ invasores, memoria, escalera, agujeros, asteroides }` — `migrarArcade()` en
+`progreso.js` convierte bóvedas viejas sin romper el mejor puntaje ya guardado). El
+puntaje de cualquier partida da algo de XP al pool global vía
+`registrarResultadoArcade(estado, juegoId, puntaje)` y puede desbloquear los logros
+"Cadete cazador"/"Francotirador espacial" (se fijan en el mejor puntaje de
+CUALQUIER juego de arcade). Para agregar un sexto juego: seguir el mismo patrón
+(función pura `crearPartidaX` en `arcade.js` + pantalla en `ui.js` que llama a
 `mostrarResultadoArcade` al terminar + agregar la entrada a `SM.arcade.JUEGOS`).
+
+## Profesor virtual: explicación paso a paso bajo pedido (`SM.lecciones.metodo`)
+Pedido explícito del usuario: que cada tema se pueda "explicar como un profesor
+virtual, en caso que requieran alguna explicación paso a paso". Botón
+"🤖 ¿Cómo se resuelve?" visible en TODA pregunta de nivel/quiz (`pantallaJuego`, no
+en el arcade — el arcade mezcla reglas de varios temas a la vez, no tiene un único
+"tema" al que apuntar la explicación). Al tocarlo:
+- Pausa el cronómetro que esté corriendo (contrarreloj o el del modo desafío por
+  pregunta — `detenerRelojTemporalmente`/`detenerTemporizadorPregunta`) para no
+  penalizar a Santi por pedir ayuda; los reanuda al cerrar (`mostrarExplicacion`
+  recibe un callback `alCerrar`), solo si la pregunta seguía sin responder.
+- Muestra un overlay (`mostrarExplicacion` en `ui.js`) con el MÉTODO general del
+  planeta actual (`SM.lecciones.metodo(mundoId)` en `lecciones.js`, 2 pasos +
+  1 ejemplo por planeta, uno para cada uno de los 7). A propósito usa un ejemplo
+  CON NÚMEROS DISTINTOS a los de la pregunta en pantalla — enseña el método, no
+  regala la respuesta de esa pregunta puntual. Si se agrega un planeta nuevo, hay
+  que agregarle también su entrada en `METODOS` o el botón no mostrará nada.
 
 **Balance (revisado — el arcade NO debe ser el camino fácil):** el usuario reportó
 que Santi lograba el reto diario y hasta las metas de premios jugando solo arcade,

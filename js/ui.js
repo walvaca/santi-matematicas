@@ -45,6 +45,30 @@
     });
   }
 
+  // "Profesor Cosmo": explicación del método general de un planeta, con un ejemplo
+  // propio (no revela la respuesta de la pregunta actual). `alCerrar` es opcional,
+  // para reanudar cronómetros que se hayan pausado mientras estaba abierta.
+  function mostrarExplicacion(mundoId, alCerrar) {
+    const metodo = SM.lecciones.metodo(mundoId);
+    if (!metodo) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'sm-overlay';
+    overlay.innerHTML = `<div class="sm-modal sm-modal-explicacion">
+      ${SM.mascota.svg('pensando', 'sm-mascota-media')}
+      <h2>🤖 ${esc(metodo.titulo)}</h2>
+      <ol class="sm-explicacion-pasos">${metodo.pasos.map((p) => `<li>${esc(p)}</li>`).join('')}</ol>
+      ${metodo.ejemplo ? `<p class="sm-explicacion-ejemplo">${esc(metodo.ejemplo)}</p>` : ''}
+      <button class="btn" data-accion="cerrar-explicacion">¡Entendido! 🚀</button>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay || e.target.dataset.accion === 'cerrar-explicacion') {
+        overlay.remove();
+        if (alCerrar) alCerrar();
+      }
+    });
+  }
+
   function lanzarConfeti(contenedor) {
     const colores = ['#4fd1ff', '#ff8a3d', '#ffd23f', '#3fd67a', '#ff6fae', '#a78bfa'];
     for (let i = 0; i < 26; i++) {
@@ -369,8 +393,19 @@
           ${p.visual ? `<div class="sm-pregunta-visual">${p.visual}</div>` : ''}
           <p class="sm-pregunta-texto">${esc(p.enunciado)}</p>
         </div>
+        <button class="sm-btn-profesor" data-accion="explicar">🤖 ¿Cómo se resuelve?</button>
         ${cuerpoRespuesta}
         <div id="sm-feedback-zona"></div>`;
+
+      zona.querySelector('[data-accion="explicar"]').addEventListener('click', () => {
+        SM.sonido.click();
+        detenerRelojTemporalmente();
+        detenerTemporizadorPregunta();
+        mostrarExplicacion(mundoId, () => {
+          reanudarRelojSiHaceFalta();
+          if (!respondiendo) iniciarTemporizadorPregunta();
+        });
+      });
 
       if (p.tipo === 'multiple') {
         zona.querySelectorAll('.sm-opcion-btn').forEach((btn) => {
@@ -896,6 +931,232 @@
     rafArcade = requestAnimationFrame(paso);
   }
 
+  // ==================== AGUJEROS NEGROS (mini-juego) ====================
+  function pantallaAgujeros(root, caja, ir) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaAgujeros(60);
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Agujeros Negros? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-agujeros">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="sm-agu-puntaje">0</b></span>
+          <span id="sm-agu-vidas">❤️❤️❤️</span>
+          <span>⏱️ <b id="sm-agu-tiempo">${partida.tiempoRestante()}</b>s</span>
+        </div>
+      </header>
+      <div class="sm-invasores-regla" id="sm-agu-regla">${esc(partida.reglaActual().texto)}</div>
+      <div class="sm-agujeros-grid" id="sm-agujeros-grid"></div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+
+    function actualizarHUD() {
+      document.getElementById('sm-agu-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-agu-tiempo').textContent = partida.tiempoRestante();
+      const vidas = partida.vidas();
+      document.getElementById('sm-agu-vidas').textContent = '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, 3 - vidas));
+    }
+
+    function flashRegla() {
+      const el = document.getElementById('sm-agu-regla');
+      el.textContent = partida.reglaActual().texto;
+      el.classList.remove('sm-regla-flash');
+      void el.offsetWidth;
+      el.classList.add('sm-regla-flash');
+    }
+
+    function renderGridBase() {
+      const zona = document.getElementById('sm-agujeros-grid');
+      zona.innerHTML = partida.huecos().map((h) => `<button class="sm-hueco" id="sm-hueco-${h.id}" data-hueco="${h.id}">🕳️</button>`).join('');
+      zona.querySelectorAll('.sm-hueco').forEach((btn) => {
+        btn.addEventListener('click', () => manejarToque(btn));
+      });
+    }
+
+    // Actualiza solo los huecos que cambiaron de estado, para no pisar la animación
+    // de acierto/fallo que deja `manejarToque` con un timeout corto.
+    function actualizarGrid() {
+      partida.huecos().forEach((h) => {
+        const btn = document.getElementById(`sm-hueco-${h.id}`);
+        if (!btn) return;
+        const yaActivo = btn.classList.contains('activo');
+        if (h.activo && !yaActivo) {
+          btn.classList.remove('acierto', 'fallo');
+          btn.classList.add('activo');
+          btn.textContent = h.etiqueta;
+        } else if (!h.activo && yaActivo) {
+          btn.classList.remove('activo');
+          btn.textContent = '🕳️';
+        }
+      });
+    }
+
+    function manejarToque(btn) {
+      const id = Number(btn.dataset.hueco);
+      const r = partida.tocar(id);
+      if (r.resultado === 'ignorado') return;
+      btn.classList.remove('activo');
+      btn.textContent = '🕳️';
+      if (r.resultado === 'acierto') {
+        SM.sonido.acierto();
+        btn.classList.add('acierto');
+      } else {
+        SM.sonido.error();
+        btn.classList.add('fallo');
+      }
+      setTimeout(() => btn.classList.remove('acierto', 'fallo'), 350);
+      actualizarHUD();
+      if (partida.terminada()) setTimeout(finalizar, 300);
+    }
+
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'agujeros', 'agujeros', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+    }
+
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const info = partida.tick(dt);
+      if (info.reglaNueva) flashRegla();
+      actualizarHUD();
+      actualizarGrid();
+      if (info.terminada) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+
+    renderGridBase();
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ==================== ESQUIVA ASTEROIDES (mini-juego) ====================
+  function pantallaAsteroides(root, caja, ir) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaAsteroides(75);
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+    const elementos = new Map();
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Esquiva Asteroides? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-asteroides">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="sm-ast-puntaje">0</b></span>
+          <span id="sm-ast-vidas">❤️❤️❤️</span>
+          <span>⏱️ <b id="sm-ast-tiempo">${partida.tiempoRestante()}</b>s</span>
+        </div>
+      </header>
+      <div class="sm-invasores-regla" id="sm-ast-regla">${esc(partida.reglaActual().texto)}</div>
+      <div class="sm-asteroides-pista" id="sm-asteroides-pista">
+        <div class="sm-carril" data-carril="0"></div>
+        <div class="sm-carril" data-carril="1"></div>
+        <div class="sm-carril" data-carril="2"></div>
+        <div class="sm-nave" id="sm-nave">🚀</div>
+      </div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+    root.querySelectorAll('.sm-carril').forEach((el) => {
+      el.addEventListener('click', () => { partida.moverA(Number(el.dataset.carril)); actualizarNave(); });
+    });
+
+    function actualizarHUD() {
+      document.getElementById('sm-ast-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-ast-tiempo').textContent = partida.tiempoRestante();
+      const vidas = partida.vidas();
+      document.getElementById('sm-ast-vidas').textContent = '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, 3 - vidas));
+    }
+
+    function flashRegla() {
+      const el = document.getElementById('sm-ast-regla');
+      el.textContent = partida.reglaActual().texto;
+      el.classList.remove('sm-regla-flash');
+      void el.offsetWidth;
+      el.classList.add('sm-regla-flash');
+    }
+
+    function actualizarNave() {
+      const nave = document.getElementById('sm-nave');
+      nave.style.left = `${((partida.carrilActual() + 0.5) / 3) * 100}%`;
+    }
+
+    function sincronizarObjetos() {
+      const pista = document.getElementById('sm-asteroides-pista');
+      const idsActuales = new Set();
+      partida.objetos().forEach((o) => {
+        idsActuales.add(o.id);
+        let el = elementos.get(o.id);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'sm-asteroide';
+          el.textContent = o.etiqueta;
+          pista.appendChild(el);
+          elementos.set(o.id, el);
+        }
+        el.style.left = `${((o.carril + 0.5) / 3) * 100}%`;
+        el.style.top = `${o.distancia * 82}%`;
+      });
+      [...elementos.keys()].forEach((id) => {
+        if (!idsActuales.has(id)) {
+          elementos.get(id).remove();
+          elementos.delete(id);
+        }
+      });
+    }
+
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'asteroides', 'asteroides', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+    }
+
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const vidasAntes = partida.vidas();
+      const puntajeAntes = partida.puntaje();
+      const info = partida.tick(dt);
+      if (info.reglaNueva) flashRegla();
+      if (partida.vidas() < vidasAntes) {
+        SM.sonido.error();
+        const pista = document.getElementById('sm-asteroides-pista');
+        pista.classList.remove('sm-shake');
+        void pista.offsetWidth;
+        pista.classList.add('sm-shake');
+      } else if (partida.puntaje() > puntajeAntes) {
+        SM.sonido.acierto();
+      }
+      actualizarHUD();
+      sincronizarObjetos();
+      if (info.terminada) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+
+    actualizarNave();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
   // ==================== METAS Y PREMIOS ====================
   function pantallaPremios(root, caja, ir) {
     detenerIntervalo();
@@ -1104,6 +1365,7 @@
   window.SM.ui = {
     pantallaInicio, pantallaMundo, pantallaLeccion, pantallaJuego,
     pantallaArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
+    pantallaAgujeros, pantallaAsteroides,
     pantallaPremios, pantallaLogros, pantallaAjustes,
   };
 })();
