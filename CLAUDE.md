@@ -259,15 +259,35 @@ se ve mal si el siguiente frame lo pisa a los 16ms. Los 5 comparten la pantalla 
 resultados (`mostrarResultadoArcade` en `ui.js`, un solo lugar: registra el
 resultado, celebra récord/logros/metas/reto diario, ofrece reintentar o volver).
 
-`progreso.arcade.juegos` guarda mejor puntaje y partidas jugadas **por juego**
-(`{ invasores, memoria, escalera, agujeros, asteroides }` — `migrarArcade()` en
-`progreso.js` convierte bóvedas viejas sin romper el mejor puntaje ya guardado). El
-puntaje de cualquier partida da algo de XP al pool global vía
-`registrarResultadoArcade(estado, juegoId, puntaje)` y puede desbloquear los logros
-"Cadete cazador"/"Francotirador espacial" (se fijan en el mejor puntaje de
-CUALQUIER juego de arcade). Para agregar un sexto juego: seguir el mismo patrón
-(función pura `crearPartidaX` en `arcade.js` + pantalla en `ui.js` que llama a
-`mostrarResultadoArcade` al terminar + agregar la entrada a `SM.arcade.JUEGOS`).
+### Dificultad seleccionable (`SM.arcade.DIFICULTADES_ARCADE`)
+Pedido explícito: "principiante, intermedio, experto, maestro", seleccionable antes
+de jugar. Tocar "Jugar" en el menú ya NO entra directo al juego — pasa primero por
+`SM.ui.pantallaDificultadArcade` (ruta `elegir-dificultad`, con `juegoId`), que
+muestra las 4 tarjetas con el mejor puntaje de Santi en CADA una, y de ahí sí entra
+al juego (`ir(juegoId, { dificultad })`). Cada `crearPartidaX(dificultadId)` recibe
+el id de dificultad (ya no un `duracionSegundos` suelto) y lee `obtenerDificultad()`
+para armar sus parámetros — es la MISMA lógica de juego con 4 perillas distintas
+(`vidas`, `factorTiempo`, `factorVelocidad`, `factorNumeros`), no 4 juegos
+separados. `factorNumeros` agranda/achica los números que usan las reglas
+compartidas de Invasores/Agujeros/Asteroides (`crearReglas(factor)`, ya no es una
+lista fija `REGLAS` — se reconstruye cada vez que hace falta una regla nueva) y
+también escala cuántas parejas tiene Memoria (6/8/10/12) o cuántos números hay que
+ordenar en Escalera (4/5/6/7). El botón "Reintentar" en la pantalla de resultados
+respeta la dificultad con la que se jugó (`ir(idPantallaJuego, {dificultad})`).
+
+`progreso.arcade.juegos[juegoId].dificultades[dificultadId]` guarda mejor puntaje y
+partidas jugadas **por juego Y por dificultad** (antes era solo por juego —
+`migrarArcade()` en `progreso.js` mete el progreso viejo, sin importar de qué forma
+venga, en la dificultad "intermedio", que era el único modo en que se podía jugar
+entonces). El puntaje de cualquier partida da algo de XP al pool global vía
+`registrarResultadoArcade(estado, juegoId, dificultadId, puntaje)` y puede
+desbloquear los logros "Cadete cazador"/"Francotirador espacial" (se fijan en el
+mejor puntaje de CUALQUIER juego en CUALQUIER dificultad, vía el helper
+`SM.progreso.mejorPuntajeJuego(juego)`). Para agregar un sexto juego: seguir el
+mismo patrón (función pura `crearPartidaX(dificultadId)` en `arcade.js`, leyendo
+`obtenerDificultad(dificultadId)` para sus parámetros, + pantalla en `ui.js` que
+recibe `dificultad` como último argumento y llama a `mostrarResultadoArcade` al
+terminar + agregar la entrada a `SM.arcade.JUEGOS`).
 
 ## Profesor virtual: explicación paso a paso bajo pedido (`SM.lecciones.metodo`)
 Pedido explícito del usuario: que cada tema se pueda "explicar como un profesor

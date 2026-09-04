@@ -14,11 +14,12 @@
       case 'leccion': SM.ui.pantallaLeccion(root, caja, datos.mundoId, ir); break;
       case 'juego': SM.ui.pantallaJuego(root, caja, datos.mundoId, datos.nivelId, ir); break;
       case 'arcade': SM.ui.pantallaArcade(root, caja, ir); break;
-      case 'invasores': SM.ui.pantallaInvasores(root, caja, ir); break;
-      case 'memoria': SM.ui.pantallaMemoria(root, caja, ir); break;
-      case 'escalera': SM.ui.pantallaEscalera(root, caja, ir); break;
-      case 'agujeros': SM.ui.pantallaAgujeros(root, caja, ir); break;
-      case 'asteroides': SM.ui.pantallaAsteroides(root, caja, ir); break;
+      case 'elegir-dificultad': SM.ui.pantallaDificultadArcade(root, caja, datos.juegoId, ir); break;
+      case 'invasores': SM.ui.pantallaInvasores(root, caja, ir, datos.dificultad); break;
+      case 'memoria': SM.ui.pantallaMemoria(root, caja, ir, datos.dificultad); break;
+      case 'escalera': SM.ui.pantallaEscalera(root, caja, ir, datos.dificultad); break;
+      case 'agujeros': SM.ui.pantallaAgujeros(root, caja, ir, datos.dificultad); break;
+      case 'asteroides': SM.ui.pantallaAsteroides(root, caja, ir, datos.dificultad); break;
       case 'premios': SM.ui.pantallaPremios(root, caja, ir); break;
       case 'logros': SM.ui.pantallaLogros(root, caja, ir); break;
       case 'ajustes': SM.ui.pantallaAjustes(root, caja, ir); break;

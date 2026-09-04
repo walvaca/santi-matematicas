@@ -540,19 +540,20 @@
     }
   }
 
-  // Pantalla de resultados compartida por los 3 juegos de arcade: registra el
+  // Pantalla de resultados compartida por los 5 juegos de arcade: registra el
   // puntaje, celebra récord/logros/metas/reto diario, y ofrece reintentar o volver.
-  // `porDerrota` = terminó por quedarse sin vidas (Invasores/Escalera) — usa un
-  // sonido más suave en vez de la fanfarria de siempre, nunca punitivo.
-  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, puntaje, comboMax, porDerrota) {
-    const resultado = SM.progreso.registrarResultadoArcade(caja.estado, juegoId, puntaje);
+  // `porDerrota` = terminó por quedarse sin vidas (no en Memoria) — usa un sonido
+  // más suave en vez de la fanfarria de siempre, nunca punitivo.
+  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, dificultadId, puntaje, comboMax, porDerrota) {
+    const resultado = SM.progreso.registrarResultadoArcade(caja.estado, juegoId, dificultadId, puntaje);
+    const perfilDif = SM.arcade.obtenerDificultad(dificultadId);
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
       <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
       ${SM.mascota.svg(puntaje >= 100 ? 'celebrando' : 'feliz', 'sm-mascota-media')}
       <h1>¡Misión de arcade completada!</h1>
-      <p class="sm-muted">Puntaje final</p>
+      <p class="sm-muted">${perfilDif.emoji} Dificultad ${esc(perfilDif.nombre)} · Puntaje final</p>
       <div class="sm-arcade-puntaje-final">${puntaje}</div>
-      ${resultado.esRecord ? '<p class="sm-record">🏅 ¡Nuevo récord!</p>' : ''}
+      ${resultado.esRecord ? '<p class="sm-record">🏅 ¡Nuevo récord en esta dificultad!</p>' : ''}
       <div class="sm-stats-fila sm-centrado">
         <div class="sm-stat-chip">🔥 Mejor combo: <b>${comboMax}</b></div>
         <div class="sm-stat-chip">✨ +${resultado.xpGanado} XP</div>
@@ -573,7 +574,7 @@
     if (resultado.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
     else if (resultado.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
     else if (resultado.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
-    root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir(idPantallaJuego); });
+    root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir(idPantallaJuego, { dificultad: dificultadId }); });
     root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
   }
 
@@ -582,17 +583,17 @@
     detenerIntervalo();
     const estado = caja.estado;
     const tarjetas = SM.arcade.JUEGOS.map((j) => {
-      const stats = estado.arcade.juegos[j.id] || { mejorPuntaje: 0, partidasJugadas: 0 };
-      return `<div class="sm-arcade-card">
+      const juegoStats = estado.arcade.juegos[j.id];
+      const mejor = SM.progreso.mejorPuntajeJuego(juegoStats);
+      return `<button class="sm-arcade-card" data-elegir="${j.id}">
         <span class="sm-arcade-emoji">${j.emoji}</span>
         <h2>${esc(j.nombre)}</h2>
         <p>${esc(j.descripcion)}</p>
         <div class="sm-stats-fila sm-centrado">
-          <div class="sm-stat-chip">🏅 Mejor puntaje: <b>${stats.mejorPuntaje}</b></div>
-          <div class="sm-stat-chip">🎮 Partidas: <b>${stats.partidasJugadas}</b></div>
+          <div class="sm-stat-chip">🏅 Mejor puntaje: <b>${mejor}</b></div>
         </div>
-        <button class="btn" data-jugar="${j.id}">▶️ Jugar</button>
-      </div>`;
+        <div class="btn">▶️ Elegir dificultad y jugar</div>
+      </button>`;
     }).join('');
 
     root.innerHTML = `<div class="sm-pantalla">
@@ -603,16 +604,46 @@
       <div class="sm-arcade-lista">${tarjetas}</div>
       ${barraInferior('arcade')}
     </div>`;
-    root.querySelectorAll('[data-jugar]').forEach((btn) => {
-      btn.addEventListener('click', () => { SM.sonido.click(); ir(btn.dataset.jugar); });
+    root.querySelectorAll('[data-elegir]').forEach((btn) => {
+      btn.addEventListener('click', () => { SM.sonido.click(); ir('elegir-dificultad', { juegoId: btn.dataset.elegir }); });
     });
     cablearNavbar(root, ir);
   }
 
-  // ==================== INVASORES NUMÉRICOS (mini-juego) ====================
-  function pantallaInvasores(root, caja, ir) {
+  // ==================== ARCADE (elegir dificultad) ====================
+  function pantallaDificultadArcade(root, caja, juegoId, ir) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaInvasores(75);
+    const estado = caja.estado;
+    const juego = SM.arcade.JUEGOS.find((j) => j.id === juegoId);
+    const juegoStats = estado.arcade.juegos[juegoId];
+    const tarjetas = SM.arcade.DIFICULTADES_ARCADE.map((d) => {
+      const stats = (juegoStats && juegoStats.dificultades[d.id]) || { mejorPuntaje: 0, partidasJugadas: 0 };
+      return `<button class="sm-dificultad-arcade-card sm-dificultad-arcade-${d.id}" data-dificultad="${d.id}">
+        <span class="sm-dificultad-arcade-emoji">${d.emoji}</span>
+        <span class="sm-dificultad-arcade-info">
+          <span class="sm-dificultad-arcade-nombre">${esc(d.nombre)}</span>
+          <span class="sm-muted">🏅 ${stats.mejorPuntaje} pts${stats.partidasJugadas ? ` · ${stats.partidasJugadas} partida${stats.partidasJugadas === 1 ? '' : 's'}` : ''}</span>
+        </span>
+      </button>`;
+    }).join('');
+
+    root.innerHTML = `<div class="sm-pantalla">
+      <header class="sm-header-mundo">
+        <button class="sm-btn-icono" data-accion="volver">←</button>
+        <div><h1>${juego.emoji} ${esc(juego.nombre)}</h1><p class="sm-muted">Elige tu nivel de dificultad</p></div>
+      </header>
+      <div class="sm-dificultad-arcade-lista">${tarjetas}</div>
+    </div>`;
+    root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
+    root.querySelectorAll('[data-dificultad]').forEach((btn) => {
+      btn.addEventListener('click', () => { SM.sonido.click(); ir(juegoId, { dificultad: btn.dataset.dificultad }); });
+    });
+  }
+
+  // ==================== INVASORES NUMÉRICOS (mini-juego) ====================
+  function pantallaInvasores(root, caja, ir, dificultad) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaInvasores(dificultad);
     SM.sonido.inicioNivel();
     let naves = [];
     let corriendo = true;
@@ -739,7 +770,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'invasores', 'invasores', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+      mostrarResultadoArcade(root, caja, ir, 'invasores', 'invasores', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     actualizarHUD();
@@ -747,10 +778,9 @@
   }
 
   // ==================== MEMORIA ESPACIAL (mini-juego) ====================
-  function pantallaMemoria(root, caja, ir) {
+  function pantallaMemoria(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const numPares = 8;
-    const partida = SM.arcade.crearPartidaMemoria(numPares, 100);
+    const partida = SM.arcade.crearPartidaMemoria(dificultad);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let bloqueado = false;
@@ -767,7 +797,7 @@
         <button class="sm-btn-icono" data-accion="salir">✕</button>
         <div class="sm-invasores-hud">
           <span>🎯 <b id="sm-mem-puntaje">0</b></span>
-          <span>🧩 <b id="sm-mem-pares">0</b>/${numPares}</span>
+          <span>🧩 <b id="sm-mem-pares">0</b>/${partida.totalPares()}</span>
           <span>⏱️ <b id="sm-mem-tiempo">${partida.tiempoRestante()}</b>s</span>
         </div>
       </header>
@@ -820,7 +850,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'memoria', 'memoria', partida.puntaje(), partida.comboMax());
+      mostrarResultadoArcade(root, caja, ir, 'memoria', 'memoria', dificultad, partida.puntaje(), partida.comboMax());
     }
 
     function paso(marca) {
@@ -841,9 +871,9 @@
   }
 
   // ==================== ESCALERA NUMÉRICA (mini-juego) ====================
-  function pantallaEscalera(root, caja, ir) {
+  function pantallaEscalera(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaEscalera(75);
+    const partida = SM.arcade.crearPartidaEscalera(dificultad);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -911,7 +941,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'escalera', 'escalera', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+      mostrarResultadoArcade(root, caja, ir, 'escalera', 'escalera', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     function paso(marca) {
@@ -932,9 +962,9 @@
   }
 
   // ==================== AGUJEROS NEGROS (mini-juego) ====================
-  function pantallaAgujeros(root, caja, ir) {
+  function pantallaAgujeros(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaAgujeros(60);
+    const partida = SM.arcade.crearPartidaAgujeros(dificultad);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -1021,7 +1051,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'agujeros', 'agujeros', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+      mostrarResultadoArcade(root, caja, ir, 'agujeros', 'agujeros', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     function paso(marca) {
@@ -1043,9 +1073,9 @@
   }
 
   // ==================== ESQUIVA ASTEROIDES (mini-juego) ====================
-  function pantallaAsteroides(root, caja, ir) {
+  function pantallaAsteroides(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaAsteroides(75);
+    const partida = SM.arcade.crearPartidaAsteroides(dificultad);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -1126,7 +1156,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'asteroides', 'asteroides', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+      mostrarResultadoArcade(root, caja, ir, 'asteroides', 'asteroides', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     function paso(marca) {
@@ -1364,7 +1394,7 @@
   window.SM = window.SM || {};
   window.SM.ui = {
     pantallaInicio, pantallaMundo, pantallaLeccion, pantallaJuego,
-    pantallaArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
+    pantallaArcade, pantallaDificultadArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
     pantallaAgujeros, pantallaAsteroides,
     pantallaPremios, pantallaLogros, pantallaAjustes,
   };

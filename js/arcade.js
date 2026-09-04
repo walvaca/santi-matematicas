@@ -1,7 +1,13 @@
 /* SM.arcade — lógica de los mini-juegos de Arcade (Invasores Numéricos, Memoria
-   Espacial, Escalera Numérica): reglas, puntaje, vidas/tiempo, dificultad creciente.
-   La animación y el dibujo en pantalla viven en js/ui.js; estos módulos solo llevan
-   el estado del puntaje, igual que SM.juego lleva el estado de un nivel normal. */
+   Espacial, Escalera Numérica, Agujeros Negros, Esquiva Asteroides): reglas,
+   puntaje, vidas/tiempo, dificultad creciente. La animación y el dibujo en pantalla
+   viven en js/ui.js; estos módulos solo llevan el estado del puntaje, igual que
+   SM.juego lleva el estado de un nivel normal.
+
+   Cada juego se puede jugar en 4 niveles de dificultad seleccionables
+   (`DIFICULTADES_ARCADE`, pedido explícito del usuario) que ajustan tiempo, vidas,
+   velocidad/ritmo y qué tan grandes/difíciles son los números — no son partidas
+   distintas de verdad, son la MISMA lógica con perillas distintas. */
 (function () {
   function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
   function elegir(arr) { return arr[randInt(0, arr.length - 1)]; }
@@ -24,73 +30,91 @@
       descripcion: 'Mueve tu nave entre los 3 carriles: choca con los asteroides correctos y esquiva los que no cumplan la regla.' },
   ];
 
-  // ==================== INVASORES NUMÉRICOS ====================
-  const REGLAS = [
-    () => {
-      const n = randInt(3, 9);
-      return {
-        texto: `¡Dispara a los MÚLTIPLOS de ${n}!`,
-        generarValor: () => (Math.random() < 0.55 ? n * randInt(1, 9) : randInt(1, 80)),
-        esCorrecta: (v) => v % n === 0,
-        etiqueta: (v) => String(v),
-      };
-    },
-    () => {
-      const n = randInt(20, 60);
-      return {
-        texto: `¡Dispara a los números MAYORES que ${n}!`,
-        generarValor: () => randInt(Math.max(n - 25, 1), n + 25),
-        esCorrecta: (v) => v > n,
-        etiqueta: (v) => String(v),
-      };
-    },
-    () => {
-      const n = randInt(20, 60);
-      return {
-        texto: `¡Dispara a los números MENORES que ${n}!`,
-        generarValor: () => randInt(Math.max(n - 25, 1), n + 25),
-        esCorrecta: (v) => v < n,
-        etiqueta: (v) => String(v),
-      };
-    },
-    () => ({
-      texto: '¡Dispara solo a los números PARES!',
-      generarValor: () => randInt(1, 80),
-      esCorrecta: (v) => v % 2 === 0,
-      etiqueta: (v) => String(v),
-    }),
-    () => ({
-      texto: '¡Dispara solo a los números IMPARES!',
-      generarValor: () => randInt(1, 80),
-      esCorrecta: (v) => v % 2 === 1,
-      etiqueta: (v) => String(v),
-    }),
-    () => {
-      const a = randInt(2, 9), b = randInt(2, 9), objetivo = a * b;
-      return {
-        texto: `¡Dispara a los que valen ${a} × ${b}!`,
-        generarValor: () => (Math.random() < 0.4 ? objetivo : Math.max(1, objetivo + elegir([-a, -b, a, b, -2, 2]))),
-        esCorrecta: (v) => v === objetivo,
-        etiqueta: (v) => String(v),
-      };
-    },
-    () => ({
-      texto: '¡Dispara a las fracciones MAYORES que 1/2!',
-      generarValor: () => { const d = elegir([3, 4, 5, 6, 8]); return { n: randInt(1, d - 1), d }; },
-      esCorrecta: (v) => v.n / v.d > 0.5,
-      etiqueta: (v) => `${v.n}/${v.d}`,
-    }),
+  const DIFICULTADES_ARCADE = [
+    { id: 'principiante', nombre: 'Principiante', emoji: '🐣', vidas: 4, factorTiempo: 1.3, factorVelocidad: 0.65, factorNumeros: 0.65 },
+    { id: 'intermedio', nombre: 'Intermedio', emoji: '🚀', vidas: 3, factorTiempo: 1.0, factorVelocidad: 1.0, factorNumeros: 1.0 },
+    { id: 'experto', nombre: 'Experto', emoji: '🔥', vidas: 3, factorTiempo: 0.85, factorVelocidad: 1.4, factorNumeros: 1.35 },
+    { id: 'maestro', nombre: 'Maestro', emoji: '👑', vidas: 2, factorTiempo: 0.7, factorVelocidad: 1.85, factorNumeros: 1.7 },
   ];
+  function obtenerDificultad(id) { return DIFICULTADES_ARCADE.find((d) => d.id === id) || DIFICULTADES_ARCADE[1]; }
+
+  // ==================== BANCO DE REGLAS (Invasores, Agujeros, Asteroides) ====================
+  // `factor` agranda o achica los números según la dificultad — se recrea cada vez
+  // que hace falta una regla nueva, no es una lista fija como antes.
+  function crearReglas(factor) {
+    factor = factor || 1;
+    return [
+      () => {
+        const n = randInt(Math.max(2, Math.round(3 * factor)), Math.max(4, Math.round(9 * factor)));
+        return {
+          texto: `¡Dispara a los MÚLTIPLOS de ${n}!`,
+          generarValor: () => (Math.random() < 0.55 ? n * randInt(1, 9) : randInt(1, Math.max(20, Math.round(80 * factor)))),
+          esCorrecta: (v) => v % n === 0,
+          etiqueta: (v) => String(v),
+        };
+      },
+      () => {
+        const n = randInt(Math.max(8, Math.round(20 * factor)), Math.max(15, Math.round(60 * factor)));
+        return {
+          texto: `¡Dispara a los números MAYORES que ${n}!`,
+          generarValor: () => randInt(Math.max(n - 25, 1), n + 25),
+          esCorrecta: (v) => v > n,
+          etiqueta: (v) => String(v),
+        };
+      },
+      () => {
+        const n = randInt(Math.max(8, Math.round(20 * factor)), Math.max(15, Math.round(60 * factor)));
+        return {
+          texto: `¡Dispara a los números MENORES que ${n}!`,
+          generarValor: () => randInt(Math.max(n - 25, 1), n + 25),
+          esCorrecta: (v) => v < n,
+          etiqueta: (v) => String(v),
+        };
+      },
+      () => ({
+        texto: '¡Dispara solo a los números PARES!',
+        generarValor: () => randInt(1, Math.max(20, Math.round(80 * factor))),
+        esCorrecta: (v) => v % 2 === 0,
+        etiqueta: (v) => String(v),
+      }),
+      () => ({
+        texto: '¡Dispara solo a los números IMPARES!',
+        generarValor: () => randInt(1, Math.max(20, Math.round(80 * factor))),
+        esCorrecta: (v) => v % 2 === 1,
+        etiqueta: (v) => String(v),
+      }),
+      () => {
+        const tope = Math.max(4, Math.round(9 * factor));
+        const a = randInt(2, tope), b = randInt(2, tope), objetivo = a * b;
+        return {
+          texto: `¡Dispara a los que valen ${a} × ${b}!`,
+          generarValor: () => (Math.random() < 0.4 ? objetivo : Math.max(1, objetivo + elegir([-a, -b, a, b, -2, 2]))),
+          esCorrecta: (v) => v === objetivo,
+          etiqueta: (v) => String(v),
+        };
+      },
+      () => ({
+        texto: '¡Dispara a las fracciones MAYORES que 1/2!',
+        generarValor: () => { const d = elegir([3, 4, 5, 6, 8]); return { n: randInt(1, d - 1), d }; },
+        esCorrecta: (v) => v.n / v.d > 0.5,
+        etiqueta: (v) => `${v.n}/${v.d}`,
+      }),
+    ];
+  }
+  function elegirRegla(factor) { return elegir(crearReglas(factor))(); }
 
   const DURACION_REGLA = 18;
 
-  function crearPartidaInvasores(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 75;
+  // ==================== INVASORES NUMÉRICOS ====================
+  function crearPartidaInvasores(dificultadId) {
+    const perfil = obtenerDificultad(dificultadId);
+    const denomBase = 110 / perfil.factorVelocidad;
+    let tiempoRestante = Math.round(75 * perfil.factorTiempo);
     let puntaje = 0;
-    let vidas = 3;
+    let vidas = perfil.vidas;
     let combo = 0;
     let comboMax = 0;
-    let reglaActual = elegir(REGLAS)();
+    let reglaActual = elegirRegla(perfil.factorNumeros);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let terminada = false;
 
@@ -102,8 +126,8 @@
       reglaActual: () => reglaActual,
       tiempoRestante: () => Math.max(0, Math.ceil(tiempoRestante)),
       terminada: () => terminada,
-      velocidad: () => Math.min(2.7, 1 + puntaje / 110),
-      intervaloSpawnMs: () => Math.max(550, 1400 / (1 + puntaje / 110)),
+      velocidad: () => Math.min(2.7, 1 + puntaje / denomBase),
+      intervaloSpawnMs: () => Math.max(550 / perfil.factorVelocidad, (1400 / perfil.factorVelocidad) / (1 + puntaje / denomBase)),
 
       generarNave() {
         const valor = reglaActual.generarValor();
@@ -140,14 +164,15 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegir(REGLAS)(); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
         return { terminada: false, reglaNueva };
       },
     };
   }
 
   // ==================== MEMORIA ESPACIAL ====================
-  function generarHechosUnicos(cantidad) {
+  function generarHechosUnicos(cantidad, factor) {
+    factor = factor || 1;
     const resultados = new Set();
     const hechos = [];
     let intentos = 0;
@@ -155,10 +180,12 @@
       intentos++;
       let enunciado, resultado;
       if (Math.random() < 0.6) {
-        const a = randInt(2, 10), b = randInt(2, 10);
+        const tope = Math.max(4, Math.round(10 * factor));
+        const a = randInt(2, tope), b = randInt(2, tope);
         enunciado = `${a} × ${b}`; resultado = a * b;
       } else {
-        const a = randInt(10, 60), b = randInt(5, 30);
+        const a = randInt(Math.max(5, Math.round(10 * factor)), Math.max(15, Math.round(60 * factor)));
+        const b = randInt(Math.max(3, Math.round(5 * factor)), Math.max(10, Math.round(30 * factor)));
         enunciado = `${a} + ${b}`; resultado = a + b;
       }
       if (!resultados.has(resultado)) { resultados.add(resultado); hechos.push({ enunciado, resultado: String(resultado) }); }
@@ -166,9 +193,11 @@
     return hechos;
   }
 
-  function crearPartidaMemoria(numPares, duracionSegundos) {
-    numPares = numPares || 8;
-    const hechos = generarHechosUnicos(numPares);
+  const PARES_POR_DIFICULTAD = { principiante: 6, intermedio: 8, experto: 10, maestro: 12 };
+  function crearPartidaMemoria(dificultadId) {
+    const perfil = obtenerDificultad(dificultadId);
+    const numPares = PARES_POR_DIFICULTAD[perfil.id] || 8;
+    const hechos = generarHechosUnicos(numPares, perfil.factorNumeros);
     let cartas = [];
     hechos.forEach((h, i) => {
       cartas.push({ id: `${i}a`, grupo: i, texto: h.enunciado, encontrada: false });
@@ -182,7 +211,7 @@
     let paresEncontrados = 0;
     let combo = 0;
     let comboMax = 0;
-    let tiempoRestante = duracionSegundos || 100;
+    let tiempoRestante = Math.round(100 * perfil.factorTiempo);
     let terminada = false;
 
     return {
@@ -234,10 +263,13 @@
   }
 
   // ==================== ESCALERA NUMÉRICA ====================
-  function crearPartidaEscalera(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 75;
+  const TILES_POR_DIFICULTAD = { principiante: 4, intermedio: 5, experto: 6, maestro: 7 };
+  function crearPartidaEscalera(dificultadId) {
+    const perfil = obtenerDificultad(dificultadId);
+    const cantidadTiles = TILES_POR_DIFICULTAD[perfil.id] || 5;
+    let tiempoRestante = Math.round(75 * perfil.factorTiempo);
     let puntaje = 0;
-    let vidas = 3;
+    let vidas = perfil.vidas;
     let escalon = 0;
     let combo = 0;
     let comboMax = 0;
@@ -247,10 +279,9 @@
     let indiceEsperado = 0;
 
     function nuevaRonda() {
-      const cantidad = 5;
-      const rango = 20 + escalon * 9;
+      const rango = Math.max(cantidadTiles + 2, Math.round((20 + escalon * 9) * perfil.factorNumeros));
       const valores = new Set();
-      while (valores.size < cantidad) valores.add(randInt(1, rango));
+      while (valores.size < cantidadTiles) valores.add(randInt(1, rango));
       const base = [...valores].map((v, i) => ({ id: `${escalon}-${i}-${v}`, valor: v }));
       tiles = mezclar(base);
       ordenObjetivo = [...tiles].sort((a, b) => a.valor - b.valor).map((t) => t.id);
@@ -301,19 +332,20 @@
 
   // ==================== AGUJEROS NEGROS ====================
   // "Whack-a-mole" con regla: los huecos se iluminan un instante con un número;
-  // hay que tocarlos mientras están activos si cumplen la regla (reusa REGLAS).
+  // hay que tocarlos mientras están activos si cumplen la regla (reusa crearReglas).
   const NUM_HUECOS = 9;
-  function crearPartidaAgujeros(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 60;
-    let puntaje = 0, vidas = 3, combo = 0, comboMax = 0;
-    let reglaActual = elegir(REGLAS)();
+  function crearPartidaAgujeros(dificultadId) {
+    const perfil = obtenerDificultad(dificultadId);
+    let tiempoRestante = Math.round(60 * perfil.factorTiempo);
+    let puntaje = 0, vidas = perfil.vidas, combo = 0, comboMax = 0;
+    let reglaActual = elegirRegla(perfil.factorNumeros);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let terminada = false;
     let acumuladorSpawn = 0;
     const huecos = Array.from({ length: NUM_HUECOS }, (_, i) => ({ id: i, activo: false, etiqueta: '', esCorrecta: false, tiempoVida: 0 }));
 
-    function intervaloSpawnMs() { return Math.max(480, 1050 - puntaje * 4); }
-    function duracionHuecoMs() { return Math.max(650, 1250 - puntaje * 3); }
+    function intervaloSpawnMs() { return Math.max(480 / perfil.factorVelocidad, (1050 - puntaje * 4) / perfil.factorVelocidad); }
+    function duracionHuecoMs() { return Math.max(650 / perfil.factorVelocidad, (1250 - puntaje * 3) / perfil.factorVelocidad); }
 
     return {
       huecos: () => huecos,
@@ -346,7 +378,7 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegir(REGLAS)(); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
 
         huecos.forEach((h) => {
           if (h.activo) {
@@ -379,20 +411,22 @@
 
   // ==================== ESQUIVA ASTEROIDES ====================
   // Nave en 3 carriles: hay que moverse al carril del asteroide correcto antes de
-  // que llegue abajo, y esquivar los que no cumplan la regla (reusa REGLAS).
+  // que llegue abajo, y esquivar los que no cumplan la regla (reusa crearReglas).
   const CARRILES = 3;
-  function crearPartidaAsteroides(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 75;
+  function crearPartidaAsteroides(dificultadId) {
+    const perfil = obtenerDificultad(dificultadId);
+    const denomBase = 110 / perfil.factorVelocidad;
+    let tiempoRestante = Math.round(75 * perfil.factorTiempo);
     let carrilActual = 1;
-    let puntaje = 0, vidas = 3, combo = 0, comboMax = 0;
+    let puntaje = 0, vidas = perfil.vidas, combo = 0, comboMax = 0;
     let terminada = false;
     let objetos = [];
-    let reglaActual = elegir(REGLAS)();
+    let reglaActual = elegirRegla(perfil.factorNumeros);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let acumuladorSpawn = 0;
     let contadorId = 0;
 
-    function velocidad() { return Math.min(2.3, 1 + puntaje / 110); }
+    function velocidad() { return Math.min(2.3, 1 + puntaje / denomBase); }
 
     return {
       objetos: () => objetos,
@@ -412,7 +446,7 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegir(REGLAS)(); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
 
         const avance = dtSegundos * 0.4 * velocidad();
         objetos.forEach((o) => { o.distancia += avance; });
@@ -439,7 +473,7 @@
         objetos = restantes;
 
         acumuladorSpawn += dtSegundos * 1000;
-        const intervalo = Math.max(480, 950 / velocidad());
+        const intervalo = Math.max(480 / perfil.factorVelocidad, (950 / perfil.factorVelocidad) / velocidad());
         if (acumuladorSpawn >= intervalo) {
           acumuladorSpawn = 0;
           const valor = reglaActual.generarValor();
@@ -456,7 +490,8 @@
 
   window.SM = window.SM || {};
   window.SM.arcade = {
-    JUEGOS, crearPartidaInvasores, crearPartidaMemoria, crearPartidaEscalera,
+    JUEGOS, DIFICULTADES_ARCADE, obtenerDificultad,
+    crearPartidaInvasores, crearPartidaMemoria, crearPartidaEscalera,
     crearPartidaAgujeros, crearPartidaAsteroides,
   };
 })();

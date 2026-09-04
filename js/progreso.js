@@ -13,8 +13,8 @@
   const LOGROS = [
     { id: 'primeros-pasos', nombre: 'Primeros pasos', icono: '🚀', descripcion: 'Completa tu primer nivel.',
       condicion: (e) => Object.keys(e.estrellas).length >= 1 },
-    { id: 'explorador', nombre: 'Explorador espacial', icono: '🛰️', descripcion: 'Visita la lección de los 6 planetas.',
-      condicion: (e) => e.leccionesVistas.length >= 6 },
+    { id: 'explorador', nombre: 'Explorador espacial', icono: '🛰️', descripcion: 'Visita la lección de los 7 planetas.',
+      condicion: (e) => e.leccionesVistas.length >= (SM.mundos.lista || []).length },
     { id: 'coleccionista-10', nombre: 'Cazaestrellas', icono: '⭐', descripcion: 'Junta 10 estrellas en total.',
       condicion: (e) => sumaEstrellas(e) >= 10 },
     { id: 'coleccionista-30', nombre: 'Coleccionista de estrellas', icono: '🌟', descripcion: 'Junta 30 estrellas en total.',
@@ -29,10 +29,10 @@
       condicion: (e) => e.racha.dias >= 14 },
     { id: 'veloz', nombre: 'Veloz como un cohete', icono: '⚡', descripcion: 'Responde 15 o más en un nivel contrarreloj.',
       condicion: (e) => e.mejorContrarreloj >= 15 },
-    { id: 'arcade-cadete', nombre: 'Cadete cazador', icono: '🎮', descripcion: 'Consigue 100 puntos en algún juego de Arcade.',
-      condicion: (e) => Object.values(e.arcade.juegos).some((j) => j.mejorPuntaje >= 100) },
-    { id: 'arcade-francotirador', nombre: 'Francotirador espacial', icono: '🛸', descripcion: 'Consigue 300 puntos en algún juego de Arcade.',
-      condicion: (e) => Object.values(e.arcade.juegos).some((j) => j.mejorPuntaje >= 300) },
+    { id: 'arcade-cadete', nombre: 'Cadete cazador', icono: '🎮', descripcion: 'Consigue 100 puntos en algún juego de Arcade (en cualquier dificultad).',
+      condicion: (e) => Object.values(e.arcade.juegos).some((j) => mejorPuntajeJuego(j) >= 100) },
+    { id: 'arcade-francotirador', nombre: 'Francotirador espacial', icono: '🛸', descripcion: 'Consigue 300 puntos en algún juego de Arcade (en cualquier dificultad).',
+      condicion: (e) => Object.values(e.arcade.juegos).some((j) => mejorPuntajeJuego(j) >= 300) },
     { id: 'maestro-tablix', nombre: 'Maestro de Tablix', icono: '🪐', descripcion: '3 estrellas en todos los niveles de Tablix.',
       condicion: (e) => mundoCompleto(e, 'tablix') },
     { id: 'maestro-numeria', nombre: 'Maestro de Numeria', icono: '🌍', descripcion: '3 estrellas en todos los niveles de Numeria.',
@@ -59,6 +59,12 @@
     return mundo.niveles.every((n) => (e.estrellas[`${mundoId}:${n.id}`] || 0) >= 3);
   }
 
+  // Mejor puntaje de un juego de arcade, sin importar en qué dificultad se logró.
+  function mejorPuntajeJuego(juego) {
+    if (!juego || !juego.dificultades) return 0;
+    return Math.max(0, ...Object.values(juego.dificultades).map((d) => d.mejorPuntaje || 0));
+  }
+
   // Una meta está "lista" solo si se cumplen AMBAS condiciones — el XP a secas se
   // puede juntar en una tarde de juego intenso, la racha no: solo sube un día a la
   // vez, así que las metas grandes obligan a jugar de forma constante, no de golpe.
@@ -74,13 +80,19 @@
     ];
   }
 
+  const IDS_DIFICULTAD_ARCADE = ['principiante', 'intermedio', 'experto', 'maestro'];
+  function dificultadesJuegoPorDefecto() {
+    const d = {};
+    IDS_DIFICULTAD_ARCADE.forEach((id) => { d[id] = { mejorPuntaje: 0, partidasJugadas: 0 }; });
+    return d;
+  }
   function arcadeJuegosPorDefecto() {
     return {
-      invasores: { mejorPuntaje: 0, partidasJugadas: 0 },
-      memoria: { mejorPuntaje: 0, partidasJugadas: 0 },
-      escalera: { mejorPuntaje: 0, partidasJugadas: 0 },
-      agujeros: { mejorPuntaje: 0, partidasJugadas: 0 },
-      asteroides: { mejorPuntaje: 0, partidasJugadas: 0 },
+      invasores: { dificultades: dificultadesJuegoPorDefecto() },
+      memoria: { dificultades: dificultadesJuegoPorDefecto() },
+      escalera: { dificultades: dificultadesJuegoPorDefecto() },
+      agujeros: { dificultades: dificultadesJuegoPorDefecto() },
+      asteroides: { dificultades: dificultadesJuegoPorDefecto() },
     };
   }
 
@@ -121,14 +133,30 @@
 
   // Bóvedas guardadas antes de que hubiera varios juegos de arcade solo tenían
   // { mejorPuntaje, partidasJugadas } planos, y eran siempre de Invasores Numéricos.
+  // Migra el bloque `arcade` guardado, venga de la forma que venga:
+  // 1) plano viejísimo { mejorPuntaje, partidasJugadas } (solo existía Invasores),
+  // 2) { juegos: { invasores: { mejorPuntaje, partidasJugadas }, ... } } (antes de
+  //    tener dificultades seleccionables), o 3) la forma actual con `dificultades`.
+  // En los casos 1 y 2 el progreso viejo se mete en la dificultad "intermedio",
+  // que era el único modo en que se podía jugar entonces.
   function migrarArcade(guardado) {
     const base = arcadeJuegosPorDefecto();
     if (!guardado) return { juegos: base };
-    if (guardado.juegos) {
-      Object.keys(base).forEach((id) => { base[id] = Object.assign({}, base[id], guardado.juegos[id]); });
+    if (!guardado.juegos) {
+      base.invasores.dificultades.intermedio = { mejorPuntaje: guardado.mejorPuntaje || 0, partidasJugadas: guardado.partidasJugadas || 0 };
       return { juegos: base };
     }
-    base.invasores = { mejorPuntaje: guardado.mejorPuntaje || 0, partidasJugadas: guardado.partidasJugadas || 0 };
+    Object.keys(base).forEach((juegoId) => {
+      const guardadoJuego = guardado.juegos[juegoId];
+      if (!guardadoJuego) return;
+      if (guardadoJuego.dificultades) {
+        IDS_DIFICULTAD_ARCADE.forEach((difId) => {
+          base[juegoId].dificultades[difId] = Object.assign({}, base[juegoId].dificultades[difId], guardadoJuego.dificultades[difId]);
+        });
+      } else if (typeof guardadoJuego.mejorPuntaje === 'number') {
+        base[juegoId].dificultades.intermedio = { mejorPuntaje: guardadoJuego.mejorPuntaje || 0, partidasJugadas: guardadoJuego.partidasJugadas || 0 };
+      }
+    });
     return { juegos: base };
   }
 
@@ -295,9 +323,10 @@
 
   // Registra el resultado de una partida de un mini-juego de arcade (juegoId: ver
   // SM.arcade.JUEGOS, ej. "invasores", "memoria", "escalera").
-  function registrarResultadoArcade(estado, juegoId, puntaje) {
-    if (!estado.arcade.juegos[juegoId]) estado.arcade.juegos[juegoId] = { mejorPuntaje: 0, partidasJugadas: 0 };
-    const stats = estado.arcade.juegos[juegoId];
+  function registrarResultadoArcade(estado, juegoId, dificultadId, puntaje) {
+    if (!estado.arcade.juegos[juegoId]) estado.arcade.juegos[juegoId] = { dificultades: dificultadesJuegoPorDefecto() };
+    if (!estado.arcade.juegos[juegoId].dificultades[dificultadId]) estado.arcade.juegos[juegoId].dificultades[dificultadId] = { mejorPuntaje: 0, partidasJugadas: 0 };
+    const stats = estado.arcade.juegos[juegoId].dificultades[dificultadId];
     stats.partidasJugadas += 1;
     const esRecord = puntaje > stats.mejorPuntaje;
     if (esRecord) stats.mejorPuntaje = puntaje;
@@ -305,7 +334,7 @@
     // /10, no /5: Santi cumplía la meta diaria y las metas de premios jugando solo
     // arcade — se bajó a propósito para que el arcade sea un extra, no el camino
     // rápido para lograrlo todo (pedido explícito, junto con subir la dificultad
-    // de los 3 juegos en arcade.js).
+    // de los juegos en arcade.js).
     const xpGanado = Math.round(puntaje / 10);
     const retoCumplidoAhora = sumarXP(estado, xpGanado);
 
@@ -401,7 +430,7 @@
   window.SM.progreso = {
     LOGROS, cargar, guardar, actualizarProgresoDiario, registrarResultadoNivel, registrarResultadoArcade,
     nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, toggleMusica, metaLista,
-    marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta,
+    marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria,
   };
 })();
