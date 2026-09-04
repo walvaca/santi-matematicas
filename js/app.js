@@ -29,5 +29,12 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch((err) => console.error('No se pudo registrar el Service Worker', err));
     }
+    // La música solo puede arrancar dentro de un gesto real del usuario (política
+    // de autoplay del navegador) — se engancha al primer toque/click de la sesión.
+    function iniciarMusicaSiCorresponde() {
+      if (caja.estado.musica) SM.sonido.musica.iniciar();
+    }
+    document.addEventListener('click', iniciarMusicaSiCorresponde, { once: true });
+    document.addEventListener('touchstart', iniciarMusicaSiCorresponde, { once: true });
   });
 })();

@@ -11,11 +11,12 @@ juego** (retos con puntaje, estrellas y racha). Proyecto hermano de `tsi-vault` 
 `tsi-catalogo` pero de dominio totalmente distinto — no comparten código.
 
 Publicado en `https://walvaca.github.io/santi-matematicas/` (GitHub Pages, repo
-`walvaca/santi-matematicas`) — Santi ya la usa en su celular real. **v1.2** (tag de
-git) es la versión que está jugando ahora mismo; cualquier cambio nuevo debe
-commitearse y pushearse a `main` para que le llegue (`git push`, sin pasos extra de
-publicación — Pages se re-despliega solo). Si se hace un cambio grande que valga la
-pena marcar como hito, seguir con `git tag -a vX.Y -m "..."` + `git push origin vX.Y`.
+`walvaca/santi-matematicas`) — Santi ya la usa en su celular real. El tag de git más
+reciente marca la versión que está jugando (revisar `git tag` para saber cuál es);
+cualquier cambio nuevo debe commitearse y pushearse a `main` para que le llegue
+(`git push`, sin pasos extra de publicación — Pages se re-despliega solo). Si se hace
+un cambio grande que valga la pena marcar como hito, seguir con
+`git tag -a vX.Y -m "..."` + `git push origin vX.Y`.
 
 ## Stack técnico
 - Sin framework, sin build step. `index.html` (estructura + CSS en `<style>`) + JS
@@ -250,12 +251,52 @@ Invasores). Para agregar un cuarto juego: seguir el mismo patrón (función pura
 `crearPartidaX` en `arcade.js` + pantalla en `ui.js` que llama a
 `mostrarResultadoArcade` al terminar + agregar la entrada a `SM.arcade.JUEGOS`).
 
+**Balance (revisado — el arcade NO debe ser el camino fácil):** el usuario reportó
+que Santi lograba el reto diario y hasta las metas de premios jugando solo arcade,
+sin tocar los planetas de matemáticas de verdad. Dos ajustes, a propósito, que no
+hay que revertir sin que el usuario lo pida:
+1. La conversión de puntaje de arcade a XP se bajó a la mitad
+   (`Math.round(puntaje / 10)` en `registrarResultadoArcade`, antes `/ 5`).
+2. Los 3 juegos se hicieron más difíciles y menos generosos en puntos: partidas más
+   cortas (Invasores/Escalera 90s→75s, Memoria 120s→100s), puntos por acierto más
+   bajos (Invasores/Escalera 10→7 por combo, Memoria 20→14), y la dificultad sube
+   más rápido (Invasores: `velocidad`/`intervaloSpawnMs` con denominador 150→110;
+   Escalera: el rango de números por escalón crece ×9 en vez de ×6).
+
+`metaDiariaXP` por defecto también subió de 60 a 100 — con el arcade nerfeado, ya
+no se completa solo con una partida rápida. Nota igual que con las metas: esto es
+el *default de una bóveda nueva*, la de Santi ya tiene su propio valor guardado —
+para que le aplique hay que cambiarlo a mano en Ajustes en su celular (el campo
+"Meta diaria de XP" ya existe para eso).
+
 ## Generación de preguntas (`js/generadores.js`)
 Las preguntas son **procedurales**, no un banco fijo — cada `SM.generadores.<tema>`
 recibe un nivel de dificultad y devuelve una pregunta nueva al azar (con las
 respuestas incorrectas de opción múltiple generadas para que sean parecidas a la
 correcta, no aleatorias sin sentido, para que el error también enseñe). Así el juego
 no se vuelve memorizable y se puede rejugar un nivel para subir de estrellas.
+
+## Música de fondo y sonidos especiales (`js/sonido.js`)
+Pedido explícito de Santi. Sigue sin haber archivos de audio en el proyecto — la
+música también es sintetizada con Web Audio API, mismo patrón que los efectos.
+- `SM.sonido.musica` (`iniciar`/`detener`/`setActiva`/`estaActiva`): dos frases
+  cortas de 8 notas en escala pentatónica (`PATRONES_MUSICA`) que se alternan y se
+  reprograman solas al terminar cada una (`reproducirCicloMusica` se llama a sí
+  misma vía `setTimeout` calculado con la duración real del patrón — no es un
+  `setInterval` de duración fija, así no se desincroniza). Volumen fijo bajo (0.045)
+  para no tapar los efectos. Tiene su **propio interruptor** (`estado.musica`),
+  separado del de efectos (`estado.sonido`) — Ajustes tiene los dos checkboxes por
+  separado. Por política de autoplay del navegador, no puede arrancar sola: `app.js`
+  la engancha al primer click/touchstart real de la sesión (`{once:true}`).
+- 4 efectos nuevos, todos reutilizando el `tono()` de siempre: `inicioNivel()` (al
+  arrancar cualquier nivel/quiz/juego de arcade), `rachaSubida()` (más especial que
+  `logro()`, cuando se cumple el reto diario), `metaAlcanzada()` (la fanfarria más
+  grande de la app, solo para premios de la vida real — nunca se sub-mezcla con
+  `logro()` para no restarle peso), `derrota()` (tono suave y descendente, nunca
+  agresivo, cuando un juego de arcade termina por quedarse sin vidas). Cuando en un
+  mismo resultado podrían sonar varias cosas a la vez (meta + racha + logro),
+  `ui.js` prioriza una sola: meta > racha > logro — nunca se encima más de un
+  jingle largo.
 
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de

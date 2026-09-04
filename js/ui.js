@@ -292,6 +292,7 @@
     const mundo = sesion.mundo;
     let buffer = '';
     let respondiendo = false;
+    SM.sonido.inicioNivel();
 
     function salir() {
       detenerIntervalo();
@@ -483,7 +484,9 @@
 
       SM.sonido.nivelCompletado(r.estrellas);
       if (r.estrellas === 3) lanzarConfeti(document.getElementById('sm-confeti-zona'));
-      if (r.logrosNuevos.length || r.metasNuevas.length || r.retoCumplidoAhora) setTimeout(() => SM.sonido.logro(), 350);
+      if (r.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
+      else if (r.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
+      else if (r.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
 
       root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir('juego', { mundoId, nivelId }); });
       root.querySelector('[data-accion="mapa"]').addEventListener('click', () => { SM.sonido.click(); ir('mundo', { mundoId }); });
@@ -504,7 +507,9 @@
 
   // Pantalla de resultados compartida por los 3 juegos de arcade: registra el
   // puntaje, celebra récord/logros/metas/reto diario, y ofrece reintentar o volver.
-  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, puntaje, comboMax) {
+  // `porDerrota` = terminó por quedarse sin vidas (Invasores/Escalera) — usa un
+  // sonido más suave en vez de la fanfarria de siempre, nunca punitivo.
+  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, puntaje, comboMax, porDerrota) {
     const resultado = SM.progreso.registrarResultadoArcade(caja.estado, juegoId, puntaje);
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
       <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
@@ -527,9 +532,12 @@
         <button class="btn btn-sec" data-accion="volver">🕹️ Volver al Arcade</button>
       </div>
     </div>`;
-    SM.sonido.nivelCompletado(resultado.esRecord ? 3 : 1);
+    if (porDerrota) SM.sonido.derrota();
+    else SM.sonido.nivelCompletado(resultado.esRecord ? 3 : 1);
     if (resultado.esRecord) lanzarConfeti(document.getElementById('sm-confeti-zona'));
-    if (resultado.logrosNuevos.length || resultado.metasNuevas.length) setTimeout(() => SM.sonido.logro(), 350);
+    if (resultado.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
+    else if (resultado.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
+    else if (resultado.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
     root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir(idPantallaJuego); });
     root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
   }
@@ -569,7 +577,8 @@
   // ==================== INVASORES NUMÉRICOS (mini-juego) ====================
   function pantallaInvasores(root, caja, ir) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaInvasores(90);
+    const partida = SM.arcade.crearPartidaInvasores(75);
+    SM.sonido.inicioNivel();
     let naves = [];
     let corriendo = true;
     let ultimoTiempo = null;
@@ -695,7 +704,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'invasores', 'invasores', partida.puntaje(), partida.comboMax());
+      mostrarResultadoArcade(root, caja, ir, 'invasores', 'invasores', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     actualizarHUD();
@@ -706,7 +715,8 @@
   function pantallaMemoria(root, caja, ir) {
     detenerIntervalo();
     const numPares = 8;
-    const partida = SM.arcade.crearPartidaMemoria(numPares, 120);
+    const partida = SM.arcade.crearPartidaMemoria(numPares, 100);
+    SM.sonido.inicioNivel();
     let corriendo = true;
     let bloqueado = false;
     let ultimoTiempo = null;
@@ -798,7 +808,8 @@
   // ==================== ESCALERA NUMÉRICA (mini-juego) ====================
   function pantallaEscalera(root, caja, ir) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaEscalera(90);
+    const partida = SM.arcade.crearPartidaEscalera(75);
+    SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
 
@@ -865,7 +876,7 @@
     function finalizar() {
       corriendo = false;
       detenerIntervalo();
-      mostrarResultadoArcade(root, caja, ir, 'escalera', 'escalera', partida.puntaje(), partida.comboMax());
+      mostrarResultadoArcade(root, caja, ir, 'escalera', 'escalera', partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
     }
 
     function paso(marca) {
@@ -975,6 +986,10 @@
           <span>Sonido</span>
           <input type="checkbox" id="sm-campo-sonido" ${estado.sonido ? 'checked' : ''}>
         </label>
+        <label class="sm-campo sm-campo-fila">
+          <span>🎵 Música de fondo</span>
+          <input type="checkbox" id="sm-campo-musica" ${estado.musica ? 'checked' : ''}>
+        </label>
 
         <div class="sm-campo">
           <span>🔥 Reto diario y racha</span>
@@ -1041,6 +1056,10 @@
       SM.progreso.toggleSonido(estado);
       SM.sonido.setActivo(e.target.checked);
       if (e.target.checked) SM.sonido.click();
+    });
+    root.querySelector('#sm-campo-musica').addEventListener('change', (e) => {
+      SM.progreso.toggleMusica(estado);
+      SM.sonido.musica.setActiva(e.target.checked);
     });
     root.querySelector('#sm-campo-meta-diaria').addEventListener('change', (e) => {
       SM.progreso.actualizarMetaDiaria(estado, parseInt(e.target.value, 10));

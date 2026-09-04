@@ -81,7 +81,7 @@
   const DURACION_REGLA = 18;
 
   function crearPartidaInvasores(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 90;
+    let tiempoRestante = duracionSegundos || 75;
     let puntaje = 0;
     let vidas = 3;
     let combo = 0;
@@ -98,8 +98,8 @@
       reglaActual: () => reglaActual,
       tiempoRestante: () => Math.max(0, Math.ceil(tiempoRestante)),
       terminada: () => terminada,
-      velocidad: () => Math.min(2.4, 1 + puntaje / 150),
-      intervaloSpawnMs: () => Math.max(650, 1500 / (1 + puntaje / 150)),
+      velocidad: () => Math.min(2.7, 1 + puntaje / 110),
+      intervaloSpawnMs: () => Math.max(550, 1400 / (1 + puntaje / 110)),
 
       generarNave() {
         const valor = reglaActual.generarValor();
@@ -116,7 +116,7 @@
         if (nave.esCorrecta) {
           combo += 1;
           comboMax = Math.max(comboMax, combo);
-          const puntosGanados = 10 * Math.min(combo, 5);
+          const puntosGanados = 7 * Math.min(combo, 5);
           puntaje += puntosGanados;
           return { acierto: true, puntosGanados };
         }
@@ -178,7 +178,7 @@
     let paresEncontrados = 0;
     let combo = 0;
     let comboMax = 0;
-    let tiempoRestante = duracionSegundos || 120;
+    let tiempoRestante = duracionSegundos || 100;
     let terminada = false;
 
     return {
@@ -207,7 +207,7 @@
         if (c1.grupo === c2.grupo) {
           c1.encontrada = true; c2.encontrada = true;
           combo++; comboMax = Math.max(comboMax, combo);
-          const puntos = 20 * Math.min(combo, 4);
+          const puntos = 14 * Math.min(combo, 4);
           puntaje += puntos;
           paresEncontrados++;
           volteadas = [];
@@ -231,7 +231,7 @@
 
   // ==================== ESCALERA NUMÉRICA ====================
   function crearPartidaEscalera(duracionSegundos) {
-    let tiempoRestante = duracionSegundos || 90;
+    let tiempoRestante = duracionSegundos || 75;
     let puntaje = 0;
     let vidas = 3;
     let escalon = 0;
@@ -244,7 +244,7 @@
 
     function nuevaRonda() {
       const cantidad = 5;
-      const rango = 20 + escalon * 6;
+      const rango = 20 + escalon * 9;
       const valores = new Set();
       while (valores.size < cantidad) valores.add(randInt(1, rango));
       const base = [...valores].map((v, i) => ({ id: `${escalon}-${i}-${v}`, valor: v }));
@@ -270,7 +270,7 @@
         if (id === esperadaId) {
           indiceEsperado++;
           combo++; comboMax = Math.max(comboMax, combo);
-          const puntos = 10 * Math.min(combo, 5);
+          const puntos = 7 * Math.min(combo, 5);
           puntaje += puntos;
           let escalonCompleto = false;
           if (indiceEsperado >= ordenObjetivo.length) {

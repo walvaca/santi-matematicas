@@ -93,10 +93,11 @@
       mejorContrarreloj: 0,      // mayor cantidad de aciertos en un nivel contrarreloj
       racha: { dias: 0, ultimaFecha: null },
       sonido: true,
+      musica: true,
       arcade: { juegos: arcadeJuegosPorDefecto() },
       metas: metasPorDefecto(),   // premios reales que un adulto configura y entrega
       desafio: { erroresPermitidos: null, segundosPorPregunta: null }, // modo agilidad opcional
-      metaDiariaXP: 60,            // XP que hay que ganar HOY para que cuente como día cumplido
+      metaDiariaXP: 100,           // XP que hay que ganar HOY para que cuente como día cumplido
       retoDiario: { fecha: null, xpHoy: 0, cumplidoHoy: false },
     };
   }
@@ -143,7 +144,7 @@
         leccionesVistas: guardado.leccionesVistas || [],
         arcade: migrarArcade(guardado.arcade),
         desafio: Object.assign({ erroresPermitidos: null, segundosPorPregunta: null }, guardado.desafio),
-        metaDiariaXP: guardado.metaDiariaXP || 60,
+        metaDiariaXP: guardado.metaDiariaXP || 100,
         retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
       });
     } catch (err) {
@@ -299,7 +300,11 @@
     const esRecord = puntaje > stats.mejorPuntaje;
     if (esRecord) stats.mejorPuntaje = puntaje;
 
-    const xpGanado = Math.round(puntaje / 5);
+    // /10, no /5: Santi cumplía la meta diaria y las metas de premios jugando solo
+    // arcade — se bajó a propósito para que el arcade sea un extra, no el camino
+    // rápido para lograrlo todo (pedido explícito, junto con subir la dificultad
+    // de los 3 juegos en arcade.js).
+    const xpGanado = Math.round(puntaje / 10);
     const retoCumplidoAhora = sumarXP(estado, xpGanado);
 
     const logrosNuevos = [];
@@ -349,6 +354,12 @@
     return estado.sonido;
   }
 
+  function toggleMusica(estado) {
+    estado.musica = !estado.musica;
+    guardar(estado);
+    return estado.musica;
+  }
+
   // Borra las estrellas de un solo nivel (o del quiz) para volver a practicarlo desde
   // cero. No re-bloquea nada — el acceso depende de `progresoMaximo`, no de esto.
   function resetearNivel(estado, mundoId, nivelId) {
@@ -387,7 +398,7 @@
   window.SM = window.SM || {};
   window.SM.progreso = {
     LOGROS, cargar, guardar, actualizarProgresoDiario, registrarResultadoNivel, registrarResultadoArcade,
-    nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, metaLista,
+    nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, toggleMusica, metaLista,
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria,
   };
