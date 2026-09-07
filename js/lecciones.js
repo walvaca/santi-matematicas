@@ -139,6 +139,21 @@
         { titulo: '¡A conquistar Radix!', texto: 'Los programadores de videojuegos usan raíces cuadradas para calcular distancias en la pantalla, por ejemplo qué tan lejos está tu nave de un asteroide. Usa tus tablas como ayuda y vas a dominar las raíces más rápido de lo que crees. ¡Vamos, Santi!' },
       ],
     },
+    factorix: {
+      titulo: 'Divisores, MCD y mcm: los números que se reparten bien',
+      pasos: [
+        { titulo: 'Bienvenido a Factorix', texto: 'Aquí vas a descubrir qué números se pueden repartir exactos entre otros, sin que sobre nada. Esto te va a servir un montón en Fracciolandia, ¡y hasta para programar!' },
+        { titulo: 'Un divisor reparte sin que sobre nada', texto: 'Si tienes 12 estrellas y las repartes en 3 grupos de 4, no sobra ninguna. Por eso decimos que 3 (y también 4) son divisores de 12.', visual: grupos(3, 4, '⭐') },
+        { titulo: 'Todos los divisores de un número', texto: 'Los divisores de 12 son: 1, 2, 3, 4, 6 y 12. Un truco: todo número SIEMPRE tiene como divisores al 1 y a sí mismo.' },
+        { titulo: 'Trucos para adivinar sin dividir', texto: 'No hace falta dividir para saber si un número es divisor: hay reglas mágicas. Del 2: si termina en par. Del 5: si termina en 0 o 5. Del 10: si termina en 0.', visual: truco('Para el 3, suma todos sus dígitos: si esa suma se puede dividir entre 3, ¡el número también! Ejemplo: 348 → 3+4+8=15, y 15 ÷ 3 = 5 exacto.') },
+        { titulo: 'Números primos: los que no se dejan repartir', texto: 'Un número primo SOLO tiene 2 divisores: el 1 y él mismo. Intenta armar un rectángulo con 7 puntos que no sea de 1 sola fila — ¡no se puede! Por eso el 7 es primo.', visual: puntos(1, 7) },
+        { titulo: 'Los compuestos sí se dejan acomodar', texto: 'El 12, en cambio, es compuesto: se puede acomodar en más de una forma, como 3 filas de 4. Tiene más de 2 divisores.', visual: puntos(3, 4) },
+        { titulo: 'El Máximo Común Divisor (MCD)', texto: 'El MCD de dos números es el divisor más grande que comparten. Los divisores de 12 son 1,2,3,4,6,12 y los de 18 son 1,2,3,6,9,18. El más grande que se repite es 6 — ¡ese es el MCD!' },
+        { titulo: 'El mínimo común múltiplo (mcm)', texto: 'El mcm es el primer número que aparece en la tabla de los dos. Mira los múltiplos de 4 y de 6: el primero que coincide en las dos filas es el mcm.', visual: rectaNumerica(0, 24, [4, 8, 12, 16, 20, 24]) + rectaNumerica(0, 24, [6, 12, 18, 24]) },
+        { titulo: '¡Esto ya lo vas a usar en Fracciolandia!', texto: 'El MCD sirve para simplificar una fracción a su forma más simple. El mcm sirve para sumar fracciones con denominador distinto, buscando ese primer número en común. ¡Todo se conecta!' },
+        { titulo: '¡A conquistar Factorix!', texto: 'Los números primos son tan importantes que los programadores los usan para proteger contraseñas y mensajes secretos en internet (se llama criptografía). Dominar esto es un paso gigante hacia ser un gran programador. ¡Vamos, Santi!' },
+      ],
+    },
   };
 
   // "Profesor virtual": una explicación corta y siempre disponible del MÉTODO general
@@ -174,6 +189,10 @@
       'Pregúntate "¿qué número multiplicado por sí mismo me da este resultado?".',
       'Prueba con los cuadrados que ya conoces: 1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144 — hasta encontrar el que coincide.',
     ], ejemplo: 'Ejemplo: √81 → ¿qué número × sí mismo = 81? → 9×9=81 → √81=9' },
+    factorix: { titulo: 'Cómo hallar el MCD y el mcm', pasos: [
+      'Para el MCD: lista los divisores de cada número y elige el más grande que se repite en las dos listas.',
+      'Para el mcm: lista los primeros múltiplos de cada número y elige el primero que aparezca en las dos listas.',
+    ], ejemplo: 'Ejemplo: MCD de 8 y 12 → divisores 1,2,4,8 y 1,2,3,4,6,12 → el mayor común es 4. mcm de 8 y 12 → múltiplos 8,16,24... y 12,24... → el primero común es 24.' },
   };
 
   function obtener(mundoId) { return LECCIONES[mundoId] || null; }

@@ -1,4 +1,4 @@
-/* SM.mundos — metadata de los 6 planetas y sus niveles. Cada nivel indica qué
+/* SM.mundos — metadata de los planetas y sus niveles. Cada nivel indica qué
    generador de preguntas usar (SM.generadores), con qué parámetros de dificultad,
    y una `dificultad` 1-4 (Fácil/Medio/Difícil/Experto) que se muestra en la UI,
    al estilo de las etiquetas de dificultad de un puzzle de ajedrez. */
@@ -14,22 +14,20 @@
     {
       id: 'tablix', orden: 1, nombre: 'Tablix', subtitulo: 'Tablas de multiplicar',
       emoji: '🪐', color: '#4fd1ff',
+      // A propósito NINGÚN nivel aísla una sola tabla: el usuario reportó que Santi
+      // se quedaba "acampando" en los niveles fáciles (tabla del 2, del 5...) sin
+      // avanzar de verdad, porque la mezcla real solo aparecía al final. Ahora TODOS
+      // los niveles combinan tablas fáciles y difíciles desde el nivel 1 (repetir un
+      // número en `rango` sube su frecuencia relativa — `elegir()` en
+      // generadores.js escoge uniforme del array — así el nivel 1 ya mete 6 y 7
+      // mezclados con las fáciles, solo que con menos peso). El "pool" de tablas
+      // crece nivel a nivel (currículo en espiral), nunca por tabla aislada.
       niveles: [
-        { id: 1, nombre: 'Tabla del 0, 1 y 10', dificultad: 1, generador: 'tablas', params: { rango: [0, 1, 10] }, preguntas: 10 },
-        { id: 2, nombre: 'Tabla del 2', dificultad: 1, generador: 'tablas', params: { rango: [2] }, preguntas: 10 },
-        { id: 3, nombre: 'Tabla del 5', dificultad: 1, generador: 'tablas', params: { rango: [5] }, preguntas: 10 },
-        { id: 4, nombre: 'Tabla del 3', dificultad: 2, generador: 'tablas', params: { rango: [3] }, preguntas: 10 },
-        { id: 5, nombre: 'Tabla del 4', dificultad: 2, generador: 'tablas', params: { rango: [4] }, preguntas: 10 },
-        { id: 6, nombre: 'Tabla del 6', dificultad: 2, generador: 'tablas', params: { rango: [6] }, preguntas: 10 },
-        { id: 7, nombre: 'Tabla del 9 (¡con truco!)', dificultad: 2, generador: 'tablas', params: { rango: [9] }, preguntas: 10 },
-        { id: 8, nombre: 'Tabla del 7', dificultad: 3, generador: 'tablas', params: { rango: [7] }, preguntas: 10 },
-        { id: 9, nombre: 'Tabla del 8', dificultad: 3, generador: 'tablas', params: { rango: [8] }, preguntas: 10 },
-        { id: 10, nombre: 'Tabla del 11', dificultad: 3, generador: 'tablas', params: { rango: [11] }, preguntas: 10 },
-        { id: 11, nombre: 'Tabla del 12', dificultad: 3, generador: 'tablas', params: { rango: [12] }, preguntas: 10 },
-        { id: 12, nombre: 'Mezcla fácil (0 al 6)', dificultad: 2, generador: 'tablas', params: { rango: [0, 1, 2, 3, 4, 5, 6] }, preguntas: 10 },
-        { id: 13, nombre: 'Mezcla difícil (7 al 12)', dificultad: 3, generador: 'tablas', params: { rango: [7, 8, 9, 10, 11, 12] }, preguntas: 10 },
-        { id: 14, nombre: 'Mezcla de todas', dificultad: 4, generador: 'tablas', params: { rango: 'todas' }, preguntas: 12 },
-        { id: 15, nombre: '¡Contrarreloj!', dificultad: 4, generador: 'tablas', params: { rango: 'todas' }, contrarreloj: { segundos: 60, umbralEstrellas: [8, 14, 20] } },
+        { id: 1, nombre: 'Despegue combinado', dificultad: 1, generador: 'tablas', params: { rango: [0, 1, 2, 5, 10, 10, 6, 7] }, preguntas: 10 },
+        { id: 2, nombre: 'Subiendo el reto', dificultad: 2, generador: 'tablas', params: { rango: [0, 1, 2, 3, 4, 5, 10, 6, 7, 8, 9] }, preguntas: 10 },
+        { id: 3, nombre: 'Refuerzo de las difíciles (¡con más 6, 7, 8 y 9!)', dificultad: 3, generador: 'tablas', params: { rango: [6, 7, 8, 9, 6, 7, 8, 9, 2, 5] }, preguntas: 10 },
+        { id: 4, nombre: 'Mezcla total', dificultad: 3, generador: 'tablas', params: { rango: 'todas' }, preguntas: 15 },
+        { id: 5, nombre: '¡Contrarreloj!', dificultad: 4, generador: 'tablas', params: { rango: 'todas' }, contrarreloj: { segundos: 60, umbralEstrellas: [8, 14, 20] } },
         { id: 'quiz', esQuiz: true, nombre: 'Quiz Final de Tablix', dificultad: 4, generador: 'tablas', params: { rango: 'todas' }, preguntas: 15 },
       ],
     },
@@ -130,6 +128,21 @@
         { id: 7, nombre: '¿Entre qué números está?', dificultad: 4, generador: 'raices', params: { tipo: 'estimar' }, preguntas: 8 },
         { id: 8, nombre: '¡Contrarreloj!', dificultad: 4, generador: 'raices', params: { tipo: 'raiz', minN: 1, maxN: 12 }, contrarreloj: { segundos: 60, umbralEstrellas: [6, 10, 15] } },
         { id: 'quiz', esQuiz: true, nombre: 'Quiz Final de Radix', dificultad: 4, generador: 'raices', params: { tipo: 'mixtoTodo' }, preguntas: 15 },
+      ],
+    },
+    {
+      id: 'factorix', orden: 8, nombre: 'Factorix', subtitulo: 'Divisores, MCD y mcm',
+      emoji: '🌌', color: '#818cf8',
+      niveles: [
+        { id: 1, nombre: '¿Es divisor o no?', dificultad: 1, generador: 'factores', params: { tipo: 'noEsDivisor', min: 10, max: 40 }, preguntas: 10 },
+        { id: 2, nombre: 'Reglas de divisibilidad fáciles', dificultad: 1, generador: 'factores', params: { tipo: 'divisibilidad', divisores: [2, 5, 10] }, preguntas: 10 },
+        { id: 3, nombre: 'El truco del 3 (¡y más reglas!)', dificultad: 2, generador: 'factores', params: { tipo: 'divisibilidad', divisores: [2, 3, 5, 10] }, preguntas: 10 },
+        { id: 4, nombre: 'Números primos y compuestos', dificultad: 2, generador: 'factores', params: { tipo: 'primo', max: 50 }, preguntas: 10 },
+        { id: 5, nombre: 'Máximo Común Divisor (MCD)', dificultad: 3, generador: 'factores', params: { tipo: 'mcd' }, preguntas: 10 },
+        { id: 6, nombre: 'Mínimo común múltiplo (mcm)', dificultad: 3, generador: 'factores', params: { tipo: 'mcm' }, preguntas: 10 },
+        { id: 7, nombre: 'Mezcla de todo', dificultad: 3, generador: 'factores', params: { tipo: 'mixto' }, preguntas: 12 },
+        { id: 8, nombre: '¡Contrarreloj!', dificultad: 4, generador: 'factores', params: { tipo: 'mixto' }, contrarreloj: { segundos: 60, umbralEstrellas: [5, 9, 13] } },
+        { id: 'quiz', esQuiz: true, nombre: 'Quiz Final de Factorix', dificultad: 4, generador: 'factores', params: { tipo: 'mixto' }, preguntas: 15 },
       ],
     },
   ];

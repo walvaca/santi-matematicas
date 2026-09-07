@@ -360,8 +360,86 @@
     return raizBasica(params);
   }
 
+  // ================= MÚLTIPLOS Y DIVISORES (Factorix) =================
+  function esPrimo(n) {
+    if (n < 2) return false;
+    for (let i = 2; i * i <= n; i++) if (n % i === 0) return false;
+    return true;
+  }
+  function divisoresDe(n) {
+    const d = [];
+    for (let i = 1; i <= n; i++) if (n % i === 0) d.push(i);
+    return d;
+  }
+  function noEsDivisor(params) {
+    let n, divs;
+    do {
+      n = randInt(params.min || 12, params.max || 60);
+      divs = divisoresDe(n);
+    } while (divs.length < 5);
+    let noDiv;
+    do { noDiv = randInt(2, n - 1); } while (divs.includes(noDiv));
+    return construirMultiple(`¿Cuál de estos números NO es divisor de ${n}?`, noDiv, mezclar(divs),
+      `${n} ÷ ${noDiv} no da un número exacto, por eso ${noDiv} no es divisor de ${n}.`);
+  }
+  const REGLAS_DIVISIBILIDAD = {
+    2: (n) => n % 2 === 0,
+    3: (n) => { let s = 0, x = n; while (x > 0) { s += x % 10; x = Math.floor(x / 10); } return s % 3 === 0; },
+    5: (n) => n % 10 === 0 || n % 10 === 5,
+    10: (n) => n % 10 === 0,
+  };
+  function reglaDivisibilidad(params) {
+    const opciones = params.divisores || [2, 3, 5, 10];
+    const d = elegir(opciones);
+    const regla = REGLAS_DIVISIBILIDAD[d];
+    const si = [], no = [];
+    for (let i = 0; i < 80 && (si.length < 1 || no.length < 3); i++) {
+      const n = randInt(params.min || 11, params.max || 99);
+      if (regla(n)) { if (si.length < 1) si.push(n); } else if (no.length < 3) no.push(n);
+    }
+    const correcta = si[0];
+    return construirMultiple(`¿Cuál de estos números SÍ es divisible por ${d}?`, correcta, mezclar(no),
+      `${correcta} es divisible por ${d}: cumple la regla de divisibilidad del ${d}.`);
+  }
+  function primoOCompuesto(params) {
+    const max = params.max || 50;
+    const primos = [], compuestos = [];
+    for (let i = 0; i < 80 && (primos.length < 1 || compuestos.length < 3); i++) {
+      const n = randInt(4, max);
+      if (esPrimo(n)) { if (primos.length < 1) primos.push(n); } else if (compuestos.length < 3) compuestos.push(n);
+    }
+    const correcta = primos[0];
+    return construirMultiple('¿Cuál de estos números es primo?', correcta, mezclar(compuestos),
+      `${correcta} es primo: solo se puede dividir exacto entre 1 y entre sí mismo.`);
+  }
+  function calcularMCD(params) {
+    const a = randInt(params.min || 4, params.max || 48);
+    const b = randInt(params.min || 4, params.max || 48);
+    const correcta = mcd(a, b);
+    const candidatos = mezclar([a, b, correcta + 1, Math.max(correcta - 1, 1), correcta * 2, a + b]);
+    return construirMultiple(`¿Cuál es el Máximo Común Divisor (MCD) de ${a} y ${b}?`, correcta, candidatos,
+      `El mayor número que divide exacto tanto a ${a} como a ${b} es ${correcta}.`);
+  }
+  function calcularMCM(params) {
+    const a = randInt(params.min || 2, params.max || 12);
+    const b = randInt(params.min || 2, params.max || 12);
+    const correcta = (a * b) / mcd(a, b);
+    const candidatos = mezclar([a * b, a, b, correcta + a, correcta + b]);
+    return construirMultiple(`¿Cuál es el mínimo común múltiplo (mcm) de ${a} y ${b}?`, correcta, candidatos,
+      `El primer múltiplo que ${a} y ${b} tienen en común es ${correcta}.`);
+  }
+  function factores(params) {
+    if (params.tipo === 'noEsDivisor') return noEsDivisor(params);
+    if (params.tipo === 'divisibilidad') return reglaDivisibilidad(params);
+    if (params.tipo === 'primo') return primoOCompuesto(params);
+    if (params.tipo === 'mcd') return calcularMCD(params);
+    if (params.tipo === 'mcm') return calcularMCM(params);
+    if (params.tipo === 'mixto') return elegir([noEsDivisor, reglaDivisibilidad, primoOCompuesto, calcularMCD, calcularMCM])(params);
+    return noEsDivisor(params);
+  }
+
   // ================= despacho general =================
-  const GENERADORES = { tablas, sumaResta, multiplicacion, division, fracciones, algebra, raices };
+  const GENERADORES = { tablas, sumaResta, multiplicacion, division, fracciones, algebra, raices, factores };
   function generar(nombre, params) {
     const fn = GENERADORES[nombre];
     if (!fn) throw new Error(`Generador desconocido: ${nombre}`);

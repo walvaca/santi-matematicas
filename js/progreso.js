@@ -13,7 +13,7 @@
   const LOGROS = [
     { id: 'primeros-pasos', nombre: 'Primeros pasos', icono: '🚀', descripcion: 'Completa tu primer nivel.',
       condicion: (e) => Object.keys(e.estrellas).length >= 1 },
-    { id: 'explorador', nombre: 'Explorador espacial', icono: '🛰️', descripcion: 'Visita la lección de los 7 planetas.',
+    { id: 'explorador', nombre: 'Explorador espacial', icono: '🛰️', descripcion: 'Visita la lección de los 8 planetas.',
       condicion: (e) => e.leccionesVistas.length >= (SM.mundos.lista || []).length },
     { id: 'coleccionista-10', nombre: 'Cazaestrellas', icono: '⭐', descripcion: 'Junta 10 estrellas en total.',
       condicion: (e) => sumaEstrellas(e) >= 10 },
@@ -45,6 +45,10 @@
       condicion: (e) => mundoCompleto(e, 'fracciolandia') },
     { id: 'maestro-incognita', nombre: 'Maestro de Incógnita', icono: '🔭', descripcion: '3 estrellas en todos los niveles de Incógnita.',
       condicion: (e) => mundoCompleto(e, 'incognita') },
+    { id: 'maestro-radix', nombre: 'Maestro de Radix', icono: '🛸', descripcion: '3 estrellas en todos los niveles de Radix.',
+      condicion: (e) => mundoCompleto(e, 'radix') },
+    { id: 'maestro-factorix', nombre: 'Maestro de Factorix', icono: '🌌', descripcion: '3 estrellas en todos los niveles de Factorix.',
+      condicion: (e) => mundoCompleto(e, 'factorix') },
     { id: 'mision-cumplida', nombre: 'Misión cumplida', icono: '👑', descripcion: '3 estrellas en TODOS los niveles de todos los planetas.',
       condicion: (e) => (SM.mundos.lista || []).every((m) => mundoCompleto(e, m.id)) },
   ];

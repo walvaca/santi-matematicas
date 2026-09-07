@@ -48,15 +48,22 @@ porque el Service Worker no se registra ahí. Probar siempre en viewport móvil
 (es el uso real: celular de Santi) y, tras la primera carga, en modo avión para
 confirmar que el Service Worker sirve la app sin internet.
 
-## Contenido: los 7 planetas (`js/mundos.js`)
+## Contenido: los 8 planetas (`js/mundos.js`)
 Orden fijo por prioridad/dificultad. **Todos los planetas están visibles desde el
 inicio** (no se obliga a repasar lo que Santi ya sabe), pero **dentro de cada
 planeta los niveles se desbloquean en secuencia** (hace falta al menos 1 estrella
 en un nivel para abrir el siguiente).
 
-1. **Tablix** (15 niveles) — tablas de multiplicar (0-12), una por una y luego
-   mezcladas. Prioridad urgente. Lección con trucos reales (dobles, el 9 con los
-   dedos, descomposición para 7/8, conteo salteado). Termina en contrarreloj.
+1. **Tablix** (6 niveles) — tablas de multiplicar (0-12). **Rediseñado a pedido del
+   usuario**: reportó que Santi "aprendía muy poco" porque se quedaba acampando en
+   los niveles de tabla aislada (antes había 15 niveles, 11 de ellos una sola tabla
+   cada uno, y la mezcla real solo aparecía al final). Ahora NINGÚN nivel aísla una
+   tabla — todos combinan fáciles y difíciles desde el nivel 1, con un "pool" de
+   tablas que crece nivel a nivel (currículo en espiral) y un nivel dedicado a
+   reforzar las tablas objetivamente más difíciles (6,7,8,9) sin aislarlas del todo
+   (siempre mezcladas con un par de fáciles). Ver el comentario en `mundos.js` junto
+   al array de niveles de Tablix antes de tocarlo — repetir un número en `rango` es
+   la forma de subirle peso/frecuencia sin cambiar `generadores.js`.
 2. **Numeria** (11 niveles) — suma y resta, con/sin llevar, 1 a 4 dígitos, problemas
    cortos (suma y resta por separado).
 3. **Multiplux** (10 niveles) — multiplicación de varios dígitos, construye sobre las
@@ -66,8 +73,9 @@ en un nivel para abrir el siguiente).
 5. **Fracciolandia** (9 niveles) — qué es una fracción (barras/círculos en SVG, sin
    imágenes), equivalentes, **simplificar**, comparar, sumar/restar mismo
    denominador, fracción de un número, y **sumar con distinto denominador** (nivel
-   Experto — solo casos donde un denominador es múltiplo del otro, para no meter LCM
-   completo, que queda fuera de alcance).
+   Experto — solo casos donde un denominador es múltiplo del otro; el generador de
+   este nivel NO se reescribió para usar el mcm completo de Factorix, sigue siendo
+   el caso simple — sería una mejora natural a futuro, no hecha todavía).
 6. **Incógnita** (9 niveles) — álgebra básica: "número misterioso", ecuaciones
    simples con metáfora de balanza, patrones crecientes y decrecientes por separado.
 7. **Radix** (9 niveles) — raíz cuadrada, agregado a pedido explícito del usuario
@@ -75,6 +83,14 @@ en un nivel para abrir el siguiente).
    perfectos (1-144, los mismos números de las tablas hasta el 12 — se le recuerda a
    Santi esa conexión en la lección), cuadrados perfectos (la inversa, n²), y
    "¿entre qué números está?" para estimar raíces no exactas (nivel Experto).
+8. **Factorix** (9 niveles) — divisores, reglas de divisibilidad (2,3,5,10), primos
+   vs. compuestos, Máximo Común Divisor (MCD) y mínimo común múltiplo (mcm). Agregado
+   a pedido explícito del usuario. La lección conecta a propósito con Fracciolandia
+   (MCD para simplificar, mcm para sumar con distinto denominador) y con la meta de
+   Santi de ser programador (números primos → criptografía). Generador nuevo
+   `SM.generadores.factores` en `generadores.js` (tipos: `noEsDivisor`,
+   `divisibilidad`, `primo`, `mcd`, `mcm`, `mixto`); reutiliza el `mcd()` que ya
+   existía para simplificar fracciones.
 
 Cada nivel tiene una **etiqeta de dificultad 1-4** (Fácil/Medio/Difícil/Experto,
 campo `dificultad` en `mundos.js`, constantes de color en `SM.mundos.DIFICULTADES`)
@@ -84,9 +100,12 @@ un puntaje ELO global (se le preguntó explícitamente y esa fue la elección).
 
 **Fuera de alcance, a propósito** (se pidió dejarlo para una actualización
 posterior, no hay que asumir que ya existe): decimales, porcentajes, geometría,
-potencias, álgebra más avanzada, fracciones con LCM completo. Si se pide agregar uno
-de estos temas, es una ampliación nueva — sigue el mismo patrón de `mundos.js` +
-`generadores.js` + `lecciones.js` que ya existe para los 6 planetas actuales.
+potencias, álgebra más avanzada. Si se pide agregar uno de estos temas, es una
+ampliación nueva — sigue el mismo patrón de `mundos.js` + `generadores.js` +
+`lecciones.js` que ya existe para los planetas actuales. Al agregar un planeta,
+recordar también: entrada `maestro-<id>` en `LOGROS` de `progreso.js` (el logro
+`mision-cumplida` y el contador de `explorador` ya son genéricos, no hace falta
+tocarlos), y subir `CACHE_NAME` en `sw.js`.
 
 ## Quiz Final por planeta (dentro de `mundos.js`, `esQuiz: true`)
 Cada planeta tiene, al final de su array `niveles`, una entrada extra con
