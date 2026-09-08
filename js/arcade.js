@@ -99,6 +99,27 @@
         esCorrecta: (v) => v.n / v.d > 0.5,
         etiqueta: (v) => `${v.n}/${v.d}`,
       }),
+      () => {
+        const tope = Math.max(9, Math.round(20 * factor));
+        const a = randInt(3, tope), b = randInt(3, tope), objetivo = a + b;
+        return {
+          texto: `¡Dispara a los que valen ${a} + ${b}!`,
+          generarValor: () => (Math.random() < 0.4 ? objetivo : Math.max(0, objetivo + elegir([-a, -b, a, b, -3, 3, -1, 1]))),
+          esCorrecta: (v) => v === objetivo,
+          etiqueta: (v) => String(v),
+        };
+      },
+      () => {
+        const a = randInt(Math.max(10, Math.round(20 * factor)), Math.max(20, Math.round(70 * factor)));
+        const b = randInt(Math.max(2, Math.round(5 * factor)), a - 1);
+        const objetivo = a - b;
+        return {
+          texto: `¡Dispara a los que valen ${a} − ${b}!`,
+          generarValor: () => (Math.random() < 0.4 ? objetivo : Math.max(0, objetivo + elegir([-b, b, -a, a, -2, 2, -1, 1]))),
+          esCorrecta: (v) => v === objetivo,
+          etiqueta: (v) => String(v),
+        };
+      },
     ];
   }
   function elegirRegla(factor) { return elegir(crearReglas(factor))(); }
@@ -179,14 +200,19 @@
     while (hechos.length < cantidad && intentos < 500) {
       intentos++;
       let enunciado, resultado;
-      if (Math.random() < 0.6) {
+      const r = Math.random();
+      if (r < 0.4) {
         const tope = Math.max(4, Math.round(10 * factor));
         const a = randInt(2, tope), b = randInt(2, tope);
         enunciado = `${a} × ${b}`; resultado = a * b;
-      } else {
+      } else if (r < 0.7) {
         const a = randInt(Math.max(5, Math.round(10 * factor)), Math.max(15, Math.round(60 * factor)));
         const b = randInt(Math.max(3, Math.round(5 * factor)), Math.max(10, Math.round(30 * factor)));
         enunciado = `${a} + ${b}`; resultado = a + b;
+      } else {
+        const a = randInt(Math.max(10, Math.round(20 * factor)), Math.max(20, Math.round(70 * factor)));
+        const b = randInt(Math.max(3, Math.round(5 * factor)), a - 1);
+        enunciado = `${a} − ${b}`; resultado = a - b;
       }
       if (!resultados.has(resultado)) { resultados.add(resultado); hechos.push({ enunciado, resultado: String(resultado) }); }
     }

@@ -244,15 +244,21 @@ propósito, nunca variantes repetidas del mismo juego:
 
 1. **Invasores Numéricos** (`crearPartidaInvasores`, `pantallaInvasores`) — reflejos:
    naves con números (o fracciones) caen del cielo; arriba se muestra una **regla**
-   que rota cada ~18s ("¡Dispara a los múltiplos de 7!", pares/impares, fracciones
-   mayores/menores que 1/2, etc.); tocar una nave que cumple la regla suma puntos
-   con combo (se reinicia si fallas o si se te escapa una correcta sin disparar);
-   3 vidas, partida de 75s, la velocidad de caída/aparición sube con el puntaje.
+   que rota cada ~18s, elegida al azar del banco compartido `crearReglas(factor)`
+   ("¡Dispara a los múltiplos de 7!", mayor/menor que, pares/impares, "vale a × b",
+   fracciones mayores que 1/2, y — agregado a pedido del usuario porque faltaba
+   sumas/restas en el arcade — "vale a + b" / "vale a − b"); tocar una nave que
+   cumple la regla suma puntos con combo (se reinicia si fallas o si se te escapa
+   una correcta sin disparar); 3 vidas, partida de 75s, la velocidad de
+   caída/aparición sube con el puntaje. Este mismo banco `crearReglas` lo reusan
+   Agujeros Negros y Esquiva Asteroides (#4 y #5) — agregar una regla nueva ahí la
+   suma automáticamente a los 3 juegos.
 2. **Memoria Espacial** (`crearPartidaMemoria`, `pantallaMemoria`) — memoria, sin
    presión de reflejos: 8 pares de cartas (operación ↔ resultado, ej. "7 × 8" con
-   "56"), voltea de a 2 para encontrar parejas; `generarHechosUnicos` evita
-   resultados repetidos entre pares para que no haya coincidencias ambiguas;
-   partida de 100s, combo por aciertos seguidos.
+   "56"), voltea de a 2 para encontrar parejas; `generarHechosUnicos` mezcla
+   multiplicación/suma/resta (agregada la resta a pedido del usuario, antes no
+   existía) y evita resultados repetidos entre pares para que no haya coincidencias
+   ambiguas; partida de 100s, combo por aciertos seguidos.
 3. **Escalera de Divisores** (`crearPartidaEscalera`, `pantallaEscalera`) —
    **rediseñado a pedido del usuario**: la versión original ("Escalera Numérica")
    solo pedía tocar números al azar de menor a mayor, algo que se resolvía mirando
