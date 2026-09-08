@@ -69,18 +69,42 @@
     return Math.max(0, ...Object.values(juego.dificultades).map((d) => d.mejorPuntaje || 0));
   }
 
-  // Una meta está "lista" solo si se cumplen AMBAS condiciones — el XP a secas se
-  // puede juntar en una tarde de juego intenso, la racha no: solo sube un día a la
-  // vez, así que las metas grandes obligan a jugar de forma constante, no de golpe.
+  // Cobertura completa: a pedido explícito del usuario, un premio ya no se gana solo
+  // acumulando XP en lo que sea más fácil — Santi tiene que haber practicado los 8
+  // planetas Y los 5 juegos de arcade al menos una vez cada uno ("ejercicios de
+  // todos los tipos y juegos... es indispensable"). "Practicado" un planeta = tiene
+  // al menos 1 estrella en algún nivel suyo; "practicado" un juego de arcade = tiene
+  // al menos 1 partida jugada en alguna dificultad.
+  function coberturaDetalle(estado) {
+    const mundos = SM.mundos.lista || [];
+    const mundosHechos = mundos.filter((m) => Object.keys(estado.estrellas).some((k) => k.startsWith(`${m.id}:`))).length;
+    const juegosArr = Object.values(estado.arcade.juegos);
+    const juegosHechos = juegosArr.filter((j) => Object.values(j.dificultades).some((d) => d.partidasJugadas > 0)).length;
+    return {
+      mundosHechos, mundosTotal: mundos.length,
+      juegosHechos, juegosTotal: juegosArr.length,
+      completa: mundos.length > 0 && mundosHechos === mundos.length && juegosArr.length > 0 && juegosHechos === juegosArr.length,
+    };
+  }
+  function coberturaCompleta(estado) { return coberturaDetalle(estado).completa; }
+
+  // Una meta está "lista" solo si se cumplen TODAS las condiciones — el XP a secas se
+  // puede juntar en una tarde de juego intenso, la racha no (solo sube un día a la
+  // vez), y la cobertura completa no se puede lograr practicando solo lo fácil: las
+  // metas grandes obligan a jugar de forma constante y variada, no de golpe ni
+  // acampando en un solo tema.
   function metaLista(estado, meta) {
-    return estado.xp >= meta.puntos && (!meta.rachaMinima || estado.racha.dias >= meta.rachaMinima);
+    return estado.xp >= meta.puntos
+      && (!meta.rachaMinima || estado.racha.dias >= meta.rachaMinima)
+      && coberturaCompleta(estado);
   }
 
   function metasPorDefecto() {
     return [
-      { id: 'meta-roblox', nombre: '30 minutos de Roblox', emoji: '🎮', puntos: 400, rachaMinima: 2, reclamada: false, notificada: false },
-      { id: 'meta-pizza', nombre: 'Noche de pizza', emoji: '🍕', puntos: 1200, rachaMinima: 5, reclamada: false, notificada: false },
-      { id: 'meta-cine', nombre: 'Ir al cine', emoji: '🎬', puntos: 3000, rachaMinima: 10, reclamada: false, notificada: false },
+      { id: 'meta-paleta', nombre: 'Paleta Dracula', emoji: '🍭', puntos: 800, rachaMinima: 5, reclamada: false, notificada: false },
+      { id: 'meta-pizza', nombre: 'Noche de pizza', emoji: '🍕', puntos: 2500, rachaMinima: 5, reclamada: false, notificada: false },
+      { id: 'meta-cine', nombre: 'Ir al cine', emoji: '🎬', puntos: 5000, rachaMinima: 5, reclamada: false, notificada: false },
+      { id: 'meta-robux', nombre: '500 Robux', emoji: '🎮', puntos: 9000, rachaMinima: 5, reclamada: false, notificada: false },
     ];
   }
 
@@ -435,6 +459,6 @@
     LOGROS, cargar, guardar, actualizarProgresoDiario, registrarResultadoNivel, registrarResultadoArcade,
     nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, toggleMusica, metaLista,
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
-    resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria,
+    resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
   };
 })();

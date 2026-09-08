@@ -1194,6 +1194,16 @@
     detenerIntervalo();
     const estado = caja.estado;
     const metas = estado.metas.slice().sort((a, b) => a.puntos - b.puntos);
+    const cobertura = SM.progreso.coberturaDetalle(estado);
+
+    const tarjetaCobertura = `<div class="sm-meta-card sm-cobertura-card ${cobertura.completa ? 'lista' : ''}">
+      <span class="sm-meta-emoji">${cobertura.completa ? '✅' : '🗺️'}</span>
+      <div class="sm-meta-info">
+        <span class="sm-meta-nombre">Requisito para CUALQUIER premio</span>
+        <span class="sm-meta-puntos">🪐 Planetas practicados: ${cobertura.mundosHechos}/${cobertura.mundosTotal}</span>
+        <span class="sm-meta-puntos">🕹️ Juegos de arcade jugados: ${cobertura.juegosHechos}/${cobertura.juegosTotal}</span>
+      </div>
+    </div>`;
 
     const tarjetas = metas.map((m) => {
       const alcanzada = SM.progreso.metaLista(estado, m);
@@ -1220,8 +1230,8 @@
         ${SM.mascota.svg('animando', 'sm-mascota-media')}
         <div><h1>🎁 Metas y Premios</h1><p class="sm-muted">✨ ${estado.xp} XP acumulados</p></div>
       </header>
-      <div class="sm-metas-lista">${tarjetas}</div>
-      <p class="sm-muted sm-metas-ayuda">Cuando una meta esté lista, muéstrasela a papá o mamá para reclamar el premio 🎉 — ellos la marcan como entregada desde Ajustes.</p>
+      <div class="sm-metas-lista">${tarjetaCobertura}${tarjetas}</div>
+      <p class="sm-muted sm-metas-ayuda">Además del XP y la racha, hay que haber practicado TODOS los planetas y TODOS los juegos de arcade al menos una vez — no vale acampar en lo más fácil. Cuando una meta esté lista, muéstrasela a papá o mamá para reclamar el premio 🎉 — ellos la marcan como entregada desde Ajustes.</p>
       ${barraInferior('premios')}
     </div>`;
     cablearNavbar(root, ir);
@@ -1318,7 +1328,7 @@
 
         <div class="sm-campo">
           <span>🎁 Metas y premios (para papá o mamá)</span>
-          <p class="sm-muted" style="margin-bottom:8px">Define cuántos puntos XP necesita Santi para ganarse cada premio real. Cuando aparezca "🎉 lista", márcala como entregada aquí una vez se la des.</p>
+          <p class="sm-muted" style="margin-bottom:8px">Define cuántos puntos XP y qué racha mínima necesita Santi para ganarse cada premio real. Además del XP y la racha, TODO premio exige que haya practicado los 8 planetas y los 5 juegos de arcade al menos una vez cada uno (no configurable, aplica siempre) — así no puede ganarse un premio grande acampando en un solo tema fácil. Cuando aparezca "🎉 lista", márcala como entregada aquí una vez se la des.</p>
           <div class="sm-metas-admin-lista">${filasMetas}</div>
           <div class="sm-meta-form">
             <input type="text" id="sm-meta-nombre" placeholder="Nombre del premio (ej. Ir al cine)" maxlength="40">

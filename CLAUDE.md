@@ -156,36 +156,52 @@ Mecánica (`actualizarProgresoDiario` + `sumarXP`, ambas en `progreso.js`):
   la tarjeta de "próxima meta".
 
 ## Metas y premios reales (`progreso.metas`, gestionado en Ajustes)
-Sistema de metas de XP con premios de la vida real (Roblox, pizza, cine, lo que el
-adulto decida) — pedido explícito del usuario, **no** se inventaron montos fijos:
-el padre/madre define nombre, emoji, puntos XP y (opcional) racha mínima de cada
-meta desde la sección "🎁 Metas y premios" dentro de Ajustes
-(`SM.progreso.agregarMeta` / `eliminarMeta` / `reclamarMeta`). Vienen 3 metas de
-ejemplo por defecto (`metasPorDefecto()` en `progreso.js`) que el adulto puede
+Sistema de metas de XP con premios de la vida real (lo que el adulto decida) —
+pedido explícito del usuario, **no** se inventaron montos fijos: el padre/madre
+define nombre, emoji, puntos XP y (opcional) racha mínima de cada meta desde la
+sección "🎁 Metas y premios" dentro de Ajustes (`SM.progreso.agregarMeta` /
+`eliminarMeta` / `reclamarMeta`). Vienen 4 metas de ejemplo por defecto
+(`metasPorDefecto()` en `progreso.js`, revisadas 2026-09-07) que el adulto puede
 editar o borrar libremente:
 
 | Meta | XP | Racha mínima |
 |---|---|---|
-| 30 min de Roblox | 400 | 2 días |
-| Noche de pizza | 1200 | 5 días |
-| Ir al cine | 3000 | 10 días |
+| 🍭 Paleta Dracula | 800 | 5 días |
+| 🍕 Noche de pizza | 2500 | 5 días |
+| 🎬 Ir al cine | 5000 | 5 días |
+| 🎮 500 Robux | 9000 | 5 días |
 
-**Por qué llevan racha mínima, no solo XP alto:** el usuario reportó que Santi sacó
-las 3 metas originales (300/700/1500 XP, sin racha) en un solo día de juego intenso
-— el XP a secas se puede farmear rejugando niveles ya dominados en una sola tarde.
-La racha, en cambio, solo sube un día calendario a la vez sin importar cuánto se
-juegue, así que exigirla junto con el XP (`SM.progreso.metaLista`, ambas
-condiciones deben cumplirse) obliga a jugar de forma constante en el tiempo, no de
-golpe. Al agregar una meta nueva desde Ajustes, dejar "Racha mínima" en 0/vacío
-sigue siendo válido (meta solo por XP), pero para premios grandes conviene ponerle
-una — es la defensa real contra volver a "sacarlas todas en un día".
+**Por qué llevan racha mínima, no solo XP alto:** el usuario reportó (dos veces:
+al agregar la racha mínima originalmente, y de nuevo el 2026-09-07 al pedir subir
+los montos) que Santi podía sacar las metas en un solo día de juego intenso — el
+XP a secas se puede farmear rejugando niveles ya dominados en una sola tarde. La
+racha, en cambio, solo sube un día calendario a la vez sin importar cuánto se
+juegue.
 
-**Nota para el usuario, no solo para el código:** estos valores nuevos son el
-*default de una bóveda nueva* — el teléfono de Santi ya tiene sus propias metas
-guardadas en su `localStorage` (posiblemente ya reclamadas con los montos viejos).
-Este cambio de código no las toca. Si se quiere aplicar el ajuste a su partida real,
-hay que entrar a Ajustes en su celular y editar/borrar/crear las metas a mano — la
-pantalla ya lo permite por completo.
+**Cobertura completa — requisito nuevo, NO configurable, aplica a TODA meta**
+(`SM.progreso.coberturaCompleta`/`coberturaDetalle` en `progreso.js`): a pedido
+explícito del usuario ("debe haber realizado ejercicios de todos los tipos y
+juegos... es indispensable"), ningún premio se puede ganar sin haber practicado
+los 8 planetas (al menos 1 estrella en algún nivel de cada uno) Y los 5 juegos de
+arcade (al menos 1 partida jugada en cualquier dificultad de cada uno). Esto es a
+propósito INDEPENDIENTE de cada meta individual — vive como condición extra dentro
+de `metaLista()`, no como campo del formulario de Ajustes, precisamente para que
+no se pueda desactivar sin tocar código. `pantallaPremios` muestra una tarjeta fija
+arriba de todas con el conteo "planetas practicados X/8" y "juegos jugados Y/5"
+para que Santi vea qué le falta. Si se agrega un planeta o un juego de arcade
+nuevo, esta cuenta se actualiza sola (itera `SM.mundos.lista` y
+`estado.arcade.juegos`, no hace falta tocar nada aquí).
+
+**Nota para el usuario, no solo para el código:** los montos de la tabla de arriba
+son el *default de una bóveda nueva* — el teléfono de Santi ya tiene sus propias
+metas guardadas en su `localStorage` con los montos/nombres viejos. Este cambio de
+código NO las toca ni las reemplaza solo (a propósito: son datos de premios reales
+ya prometidos, no es algo para migrar en silencio). Para aplicar el ajuste a su
+partida real, hay que entrar a Ajustes en su celular, borrar las metas viejas y
+crear las 4 de la tabla a mano — la pantalla ya lo permite por completo. La
+cobertura completa, en cambio, SÍ aplica de inmediato a su partida real apenas
+llegue esta actualización, sin que el adulto tenga que hacer nada — es lógica de
+código, no un dato guardado.
 
 Pantalla propia para Santi (`SM.ui.pantallaPremios`, pestaña "🎁 Metas" en la barra
 inferior) donde ve el progreso de cada meta con una barra (dos barras si tiene
