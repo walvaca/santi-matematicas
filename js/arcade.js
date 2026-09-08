@@ -22,8 +22,8 @@
       descripcion: 'Naves con números caen del cielo. Lee la regla y dispara solo a las que la cumplan — ¡cuidado con las trampas!' },
     { id: 'memoria', nombre: 'Memoria Espacial', emoji: '🧠',
       descripcion: 'Voltea cartas y encuentra las parejas de operación y resultado antes de que se acabe el tiempo.' },
-    { id: 'escalera', nombre: 'Escalera Numérica', emoji: '🪜',
-      descripcion: 'Toca los números en orden de menor a mayor lo más rápido posible para subir escalones.' },
+    { id: 'escalera', nombre: 'Escalera de Divisores', emoji: '🪜',
+      descripcion: 'Aparece un número: calcula su mitad, tercera parte, cuarta parte... y tócalas en orden, de la más chica a la más grande.' },
     { id: 'agujeros', nombre: 'Agujeros Negros', emoji: '🕳️',
       descripcion: 'Números aparecen un instante en los agujeros — tócalos rápido si cumplen la regla antes de que se los trague el agujero negro.' },
     { id: 'asteroides', nombre: 'Esquiva Asteroides', emoji: '☄️',
@@ -262,11 +262,33 @@
     };
   }
 
-  // ==================== ESCALERA NUMÉRICA ====================
-  const TILES_POR_DIFICULTAD = { principiante: 4, intermedio: 5, experto: 6, maestro: 7 };
+  // ==================== ESCALERA DE DIVISORES ====================
+  // Rediseñado a pedido del usuario: la versión anterior (tocar números al azar en
+  // orden ascendente) se resolvía solo mirando, sin pensar de verdad, y por eso Santi
+  // llegaba a la meta "super rápido". Ahora cada ronda muestra UN número compartido
+  // (`numeroBase`, siempre múltiplo de 120 para que todas las partes den exacto) y
+  // los tiles muestran la OPERACIÓN (½, ⅓, ¼...), no el resultado — hay que calcular
+  // mentalmente cada parte para poder ordenarlas de menor a mayor resultado.
+  const PARTES = {
+    2: { etiqueta: '½', nombre: 'la mitad' },
+    3: { etiqueta: '⅓', nombre: 'la tercera parte' },
+    4: { etiqueta: '¼', nombre: 'la cuarta parte' },
+    5: { etiqueta: '⅕', nombre: 'la quinta parte' },
+    6: { etiqueta: '⅙', nombre: 'la sexta parte' },
+    8: { etiqueta: '⅛', nombre: 'la octava parte' },
+    10: { etiqueta: '⅒', nombre: 'la décima parte' },
+  };
+  // Cada dificultad usa un pool fijo de partes (no solo tiles más numerosas): a más
+  // dificultad, denominadores mentalmente más difíciles (6, 8) se suman al pool.
+  const PARTES_POR_DIFICULTAD = {
+    principiante: [2, 4, 5, 10],
+    intermedio: [2, 3, 4, 5, 10],
+    experto: [2, 3, 4, 5, 6, 10],
+    maestro: [2, 3, 4, 5, 6, 8, 10],
+  };
   function crearPartidaEscalera(dificultadId) {
     const perfil = obtenerDificultad(dificultadId);
-    const cantidadTiles = TILES_POR_DIFICULTAD[perfil.id] || 5;
+    const denominadores = PARTES_POR_DIFICULTAD[perfil.id] || PARTES_POR_DIFICULTAD.intermedio;
     let tiempoRestante = Math.round(75 * perfil.factorTiempo);
     let puntaje = 0;
     let vidas = perfil.vidas;
@@ -277,12 +299,12 @@
     let tiles = [];
     let ordenObjetivo = [];
     let indiceEsperado = 0;
+    let numeroBase = 0;
 
     function nuevaRonda() {
-      const rango = Math.max(cantidadTiles + 2, Math.round((20 + escalon * 9) * perfil.factorNumeros));
-      const valores = new Set();
-      while (valores.size < cantidadTiles) valores.add(randInt(1, rango));
-      const base = [...valores].map((v, i) => ({ id: `${escalon}-${i}-${v}`, valor: v }));
+      const multiplo = Math.max(1, Math.round((1 + escalon) * perfil.factorNumeros));
+      numeroBase = 120 * multiplo; // 120 es divisible entre 2,3,4,5,6,8,10 — siempre da exacto
+      const base = denominadores.map((d, i) => ({ id: `${escalon}-${i}-${d}`, valor: numeroBase / d, etiqueta: PARTES[d].etiqueta, nombre: PARTES[d].nombre }));
       tiles = mezclar(base);
       ordenObjetivo = [...tiles].sort((a, b) => a.valor - b.valor).map((t) => t.id);
       indiceEsperado = 0;
@@ -291,6 +313,7 @@
 
     return {
       tiles: () => tiles,
+      numeroBase: () => numeroBase,
       puntaje: () => puntaje,
       vidas: () => vidas,
       escalon: () => escalon,

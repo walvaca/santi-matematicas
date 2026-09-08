@@ -895,8 +895,9 @@
       </header>
       <div class="sm-escalera-info">
         <span>🪜 Escalón <b id="sm-esc-escalon">1</b></span>
-        <span class="sm-muted">Toca los números del más pequeño al más grande</span>
+        <span class="sm-escalera-numero">🔢 <b id="sm-esc-numero">${partida.numeroBase()}</b></span>
       </div>
+      <p class="sm-muted sm-escalera-instruccion">Calcula sus partes y tócalas de la MÁS CHICA a la MÁS GRANDE</p>
       <div class="sm-escalera-tiles" id="sm-escalera-tiles"></div>
     </div>`;
     root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
@@ -905,13 +906,14 @@
       document.getElementById('sm-esc-puntaje').textContent = partida.puntaje();
       document.getElementById('sm-esc-tiempo').textContent = partida.tiempoRestante();
       document.getElementById('sm-esc-escalon').textContent = partida.escalon() + 1;
+      document.getElementById('sm-esc-numero').textContent = partida.numeroBase();
       const vidas = partida.vidas();
       document.getElementById('sm-esc-vidas').textContent = '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, 3 - vidas));
     }
 
     function renderTiles() {
       const zona = document.getElementById('sm-escalera-tiles');
-      zona.innerHTML = partida.tiles().map((t) => `<button class="sm-tile-escalera" data-tile="${t.id}">${t.valor}</button>`).join('');
+      zona.innerHTML = partida.tiles().map((t) => `<button class="sm-tile-escalera" data-tile="${t.id}" title="${t.nombre}">${t.etiqueta}</button>`).join('');
       zona.querySelectorAll('.sm-tile-escalera').forEach((btn) => {
         btn.addEventListener('click', () => manejarToque(btn));
       });

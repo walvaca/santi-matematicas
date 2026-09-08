@@ -253,10 +253,20 @@ propósito, nunca variantes repetidas del mismo juego:
    "56"), voltea de a 2 para encontrar parejas; `generarHechosUnicos` evita
    resultados repetidos entre pares para que no haya coincidencias ambiguas;
    partida de 100s, combo por aciertos seguidos.
-3. **Escalera Numérica** (`crearPartidaEscalera`, `pantallaEscalera`) — orden bajo
-   presión: 5 números en pantalla, hay que tocarlos de menor a mayor lo más rápido
-   posible; cada escalón completado sube la dificultad (rango de números más
-   grande) y genera una ronda nueva; 3 vidas, partida de 75s.
+3. **Escalera de Divisores** (`crearPartidaEscalera`, `pantallaEscalera`) —
+   **rediseñado a pedido del usuario**: la versión original ("Escalera Numérica")
+   solo pedía tocar números al azar de menor a mayor, algo que se resolvía mirando
+   sin pensar, y el usuario reportó que Santi llegaba a la meta de puntos "super
+   rápido". Ahora cada ronda muestra UN número compartido `numeroBase` (siempre
+   múltiplo de 120, para que toda parte dé exacto) y los tiles muestran la
+   OPERACIÓN (½, ⅓, ¼, ⅕, ⅙, ⅛, ⅒ — nunca el resultado, `PARTES` en `arcade.js`),
+   así que hay que calcular mentalmente cada parte antes de poder ordenarlas de
+   menor a mayor resultado. El pool de partes disponibles crece con la dificultad
+   (`PARTES_POR_DIFICULTAD`: principiante solo mitad/cuarta/quinta/décima; maestro
+   suma tercera, sexta y octava, las mentalmente más difíciles); 3 vidas, partida
+   de 75s. Si se vuelve a sentir "fácil", el nudge es el pool de partes o el
+   crecimiento de `numeroBase` por escalón, NO volver a la versión de solo mirar
+   y ordenar.
 4. **Agujeros Negros** (`crearPartidaAgujeros`, `pantallaAgujeros`) — "whack-a-mole"
    con regla (reusa el mismo banco `REGLAS` de Invasores): grilla de 9 huecos, uno
    se ilumina un instante con un número — hay que tocarlo mientras está activo si
