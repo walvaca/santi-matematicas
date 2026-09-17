@@ -61,6 +61,8 @@ p{line-height:1.5}
 .sm-planetas-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
 .sm-planeta-card{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--color-planeta,var(--accent));border-radius:var(--radius);padding:14px 10px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;transition:transform .1s}
 .sm-planeta-card:active{transform:scale(.96)}
+.sm-planeta-card.bloqueado{opacity:.45;border-top-color:var(--border)}
+.sm-planeta-card.bloqueado:active{transform:none}
 .sm-planeta-emoji{font-size:32px}
 .sm-planeta-nombre{font-weight:700;font-size:14.5px}
 .sm-planeta-subtitulo{color:var(--muted);font-size:11px;min-height:26px}
@@ -174,6 +176,7 @@ p{line-height:1.5}
 
 /* ---------- arcade: menú ---------- */
 .sm-arcade-lista{display:flex;flex-direction:column;gap:12px}
+.sm-arcade-aviso{text-align:center;margin:-4px 0 12px;color:var(--accent)}
 .sm-arcade-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
 .sm-arcade-emoji{font-size:44px}
 .sm-arcade-card p{color:var(--muted);font-size:13.5px;margin-bottom:6px}

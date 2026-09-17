@@ -155,6 +155,65 @@ Mecánica (`actualizarProgresoDiario` + `sumarXP`, ambas en `progreso.js`):
 - Inicio (`pantallaInicio`) muestra el reto de hoy con barra de progreso, arriba de
   la tarjeta de "próxima meta".
 
+## Modo enfoque: solo tablas (`estado.modoSoloTablas`, gestionado en Ajustes)
+Pedido explícito y urgente del usuario (2026-09-16): Santi "casi pierde el año" por
+no dominar las tablas de multiplicar, y se dispersaba entre 8 planetas y 5 juegos de
+arcade en vez de enfocarse ahí. `estado.modoSoloTablas` (booleano, default **true**
+incluso para bóvedas ya guardadas — ver el comentario en `cargar()` en
+`progreso.js`, es de los pocos valores nuevos de esta app que sí debía aplicar de
+inmediato a la partida real de Santi) es un interruptor reversible, no una
+eliminación de contenido — nada se borró del código, todo sigue ahí para cuando el
+adulto lo vuelva a apagar desde Ajustes ("🎯 Modo enfoque: solo tablas de
+multiplicar").
+
+**Con el modo activo:**
+- `pantallaInicio` (`ui.js`) bloquea todos los planetas menos Tablix: se ven
+  (candado 🔒, mismo lenguaje visual que un nivel bloqueado dentro de un planeta),
+  pero el botón está `disabled` — no hay URL routing en esta app, así que bloquear
+  el botón de la grilla basta para que sean inalcanzables por la UI normal.
+- Los 5 juegos de arcade generan SOLO contenido de tablas de multiplicar (0 al 12),
+  mezclando tablas bajas y altas a propósito (mismo espíritu que el rediseño de
+  Tablix: nunca aislar solo lo fácil). Esto se logra con un parámetro `soloTablas`
+  nuevo, threaded desde `caja.estado.modoSoloTablas` en cada `pantallaX` de `ui.js`
+  hasta el `crearPartidaX(dificultadId, soloTablas)` correspondiente en `arcade.js`:
+  - **Invasores / Agujeros Negros / Esquiva Asteroides** (comparten `crearReglas`):
+    cada regla del banco ahora lleva `{tabla: true/false, crear}`; con `soloTablas`,
+    `elegirRegla(factor, soloTablas)` filtra a solo las 2 reglas etiquetadas
+    `tabla:true` ("¡Dispara a los resultados de la TABLA DEL N!" — antes decía
+    "MÚLTIPLOS de N", se renombró para usar el mismo lenguaje que el colegio — y
+    "vale a × b"). El resto del banco (mayor/menor, pares/impares, fracciones,
+    suma, resta) sigue en el código, solo no se elige mientras el modo esté activo.
+  - **Memoria Espacial**: `generarHechosUnicos(cantidad, factor, soloTablas)` con
+    `soloTablas` genera ÚNICAMENTE parejas de multiplicación (nunca suma/resta),
+    con el multiplicando mezclando tablas bajas y altas.
+  - **Escalera**: es el cambio más grande — con `soloTablas`, `crearPartidaEscalera`
+    deja de usar el modo "partes de un número" (½, ⅓...) y pasa a **"Escalera de
+    Tablas"**: cada ronda genera tiles con productos a×b DISTINTOS (ej. "7 × 8" y
+    "6 × 9") que hay que calcular y ordenar de menor a mayor resultado — a
+    propósito NO usa un solo multiplicando fijo con multiplicadores variables,
+    porque ahí el orden se podría adivinar sin calcular nada (mayor multiplicador
+    = mayor resultado); con productos de pares distintos, dos resultados pueden
+    quedar muy cerca (56 vs 54) y de verdad hay que saberse las tablas. El nombre
+    mostrado en `pantallaArcade` también cambia dinámicamente a "Escalera de
+    Tablas" mientras el modo esté activo (ver el `map` de tarjetas en
+    `pantallaArcade`, `ui.js`) — cuando se apague, vuelve a ser "Escalera de
+    Divisores" con su lógica original intacta.
+- **Cobertura completa para premios** (sección de abajo) se ajusta sola: con el
+  modo activo, `coberturaDetalle` solo exige Tablix (no los 8 planetas — sería
+  imposible mientras los otros 7 están bloqueados), pero sigue exigiendo los 5
+  juegos de arcade.
+- Logros específicos de otros planetas (`maestro-numeria`, etc.) y "Explorador
+  espacial" (visitar las 8 lecciones) quedan naturalmente en pausa mientras el modo
+  esté activo — no es un bug, es la consecuencia esperada de bloquear esos
+  planetas; vuelven a ser alcanzables en cuanto el adulto apague el modo.
+
+**Reinicio de racha:** botón nuevo "🔄 Reiniciar racha a 0" en Ajustes
+(`SM.progreso.reiniciarRacha`), separado del botón destructivo de "Reiniciar todo
+el progreso" — pedido explícito del usuario ("volvamos a iniciar desde 00"). Solo
+toca `estado.racha` y `estado.retoDiario`; NUNCA toca estrellas/XP/logros, que en
+esta app nunca se borran solos (mismo principio documentado arriba para el reto
+diario).
+
 ## Metas y premios reales (`progreso.metas`, gestionado en Ajustes)
 Sistema de metas de XP con premios de la vida real (lo que el adulto decida) —
 pedido explícito del usuario, **no** se inventaron montos fijos: el padre/madre

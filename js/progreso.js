@@ -76,7 +76,11 @@
   // al menos 1 estrella en algún nivel suyo; "practicado" un juego de arcade = tiene
   // al menos 1 partida jugada en alguna dificultad.
   function coberturaDetalle(estado) {
-    const mundos = SM.mundos.lista || [];
+    // Con el modo enfoque en tablas activo, solo Tablix está desbloqueado — exigir
+    // los 8 planetas dejaría CUALQUIER premio imposible de ganar mientras Santi
+    // practica tablas, que es justo lo contrario de lo que se busca. En ese modo la
+    // cobertura de planetas se reduce a los que sí están disponibles (solo Tablix).
+    const mundos = estado.modoSoloTablas ? (SM.mundos.lista || []).filter((m) => m.id === 'tablix') : (SM.mundos.lista || []);
     const mundosHechos = mundos.filter((m) => Object.keys(estado.estrellas).some((k) => k.startsWith(`${m.id}:`))).length;
     const juegosArr = Object.values(estado.arcade.juegos);
     const juegosHechos = juegosArr.filter((j) => Object.values(j.dificultades).some((d) => d.partidasJugadas > 0)).length;
@@ -141,6 +145,15 @@
       desafio: { erroresPermitidos: null, segundosPorPregunta: null }, // modo agilidad opcional
       metaDiariaXP: 100,           // XP que hay que ganar HOY para que cuente como día cumplido
       retoDiario: { fecha: null, xpHoy: 0, cumplidoHoy: false },
+      // Modo enfoque: solo tablas — pedido explícito del usuario (Santi casi pierde
+      // el año por no dominar las tablas, y se dispersaba entre 8 planetas y 5
+      // juegos). En true, todos los planetas menos Tablix quedan bloqueados y el
+      // arcade solo genera contenido de tablas de multiplicar. Lo apaga un adulto
+      // desde Ajustes cuando Santi ya domine las tablas y toque avanzar a lo demás.
+      // Default true para bóvedas NUEVAS y también para las YA GUARDADAS (ver
+      // `cargar()`) — a diferencia de otros valores nuevos de esta app, este sí
+      // debía aplicar de inmediato a la partida real de Santi, por pedido explícito.
+      modoSoloTablas: true,
     };
   }
 
@@ -204,6 +217,10 @@
         desafio: Object.assign({ erroresPermitidos: null, segundosPorPregunta: null }, guardado.desafio),
         metaDiariaXP: guardado.metaDiariaXP || 100,
         retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
+        // A propósito default `true` incluso para bóvedas guardadas ANTES de que
+        // existiera este campo (`typeof ... === 'boolean'` es la única forma de
+        // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
+        modoSoloTablas: typeof guardado.modoSoloTablas === 'boolean' ? guardado.modoSoloTablas : true,
       });
     } catch (err) {
       console.error('No se pudo leer el progreso guardado', err);
@@ -454,11 +471,28 @@
     return estado;
   }
 
+  function actualizarModoSoloTablas(estado, activo) {
+    estado.modoSoloTablas = !!activo;
+    guardar(estado);
+    return estado;
+  }
+
+  // Reinicia SOLO la racha y el reto del día (pedido explícito del usuario, "volvamos
+  // a iniciar desde 00") — a propósito no toca estrellas/XP/logros, que nunca se
+  // borran solos en esta app.
+  function reiniciarRacha(estado) {
+    estado.racha = { dias: 0, ultimaFecha: null };
+    estado.retoDiario = { fecha: null, xpHoy: 0, cumplidoHoy: false };
+    guardar(estado);
+    return estado;
+  }
+
   window.SM = window.SM || {};
   window.SM.progreso = {
     LOGROS, cargar, guardar, actualizarProgresoDiario, registrarResultadoNivel, registrarResultadoArcade,
     nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, toggleMusica, metaLista,
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
+    actualizarModoSoloTablas, reiniciarRacha,
   };
 })();

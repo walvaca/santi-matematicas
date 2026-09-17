@@ -41,19 +41,24 @@
   // ==================== BANCO DE REGLAS (Invasores, Agujeros, Asteroides) ====================
   // `factor` agranda o achica los números según la dificultad — se recrea cada vez
   // que hace falta una regla nueva, no es una lista fija como antes.
+  // Cada regla lleva `tabla:true/false` para poder filtrar solo las de tablas de
+  // multiplicar cuando el "modo enfoque" (`estado.modoSoloTablas`) está activo — ver
+  // `elegirRegla(factor, soloTablas)`. Nunca se borró ninguna regla existente: el
+  // modo enfoque es temporal y reversible desde Ajustes, así que todo el banco sigue
+  // aquí para cuando el usuario lo vuelva a activar.
   function crearReglas(factor) {
     factor = factor || 1;
     return [
-      () => {
+      { tabla: true, crear: () => {
         const n = randInt(Math.max(2, Math.round(3 * factor)), Math.max(4, Math.round(9 * factor)));
         return {
-          texto: `¡Dispara a los MÚLTIPLOS de ${n}!`,
+          texto: `¡Dispara a los resultados de la TABLA DEL ${n}!`,
           generarValor: () => (Math.random() < 0.55 ? n * randInt(1, 9) : randInt(1, Math.max(20, Math.round(80 * factor)))),
           esCorrecta: (v) => v % n === 0,
           etiqueta: (v) => String(v),
         };
-      },
-      () => {
+      } },
+      { tabla: false, crear: () => {
         const n = randInt(Math.max(8, Math.round(20 * factor)), Math.max(15, Math.round(60 * factor)));
         return {
           texto: `¡Dispara a los números MAYORES que ${n}!`,
@@ -61,8 +66,8 @@
           esCorrecta: (v) => v > n,
           etiqueta: (v) => String(v),
         };
-      },
-      () => {
+      } },
+      { tabla: false, crear: () => {
         const n = randInt(Math.max(8, Math.round(20 * factor)), Math.max(15, Math.round(60 * factor)));
         return {
           texto: `¡Dispara a los números MENORES que ${n}!`,
@@ -70,20 +75,20 @@
           esCorrecta: (v) => v < n,
           etiqueta: (v) => String(v),
         };
-      },
-      () => ({
+      } },
+      { tabla: false, crear: () => ({
         texto: '¡Dispara solo a los números PARES!',
         generarValor: () => randInt(1, Math.max(20, Math.round(80 * factor))),
         esCorrecta: (v) => v % 2 === 0,
         etiqueta: (v) => String(v),
-      }),
-      () => ({
+      }) },
+      { tabla: false, crear: () => ({
         texto: '¡Dispara solo a los números IMPARES!',
         generarValor: () => randInt(1, Math.max(20, Math.round(80 * factor))),
         esCorrecta: (v) => v % 2 === 1,
         etiqueta: (v) => String(v),
-      }),
-      () => {
+      }) },
+      { tabla: true, crear: () => {
         const tope = Math.max(4, Math.round(9 * factor));
         const a = randInt(2, tope), b = randInt(2, tope), objetivo = a * b;
         return {
@@ -92,14 +97,14 @@
           esCorrecta: (v) => v === objetivo,
           etiqueta: (v) => String(v),
         };
-      },
-      () => ({
+      } },
+      { tabla: false, crear: () => ({
         texto: '¡Dispara a las fracciones MAYORES que 1/2!',
         generarValor: () => { const d = elegir([3, 4, 5, 6, 8]); return { n: randInt(1, d - 1), d }; },
         esCorrecta: (v) => v.n / v.d > 0.5,
         etiqueta: (v) => `${v.n}/${v.d}`,
-      }),
-      () => {
+      }) },
+      { tabla: false, crear: () => {
         const tope = Math.max(9, Math.round(20 * factor));
         const a = randInt(3, tope), b = randInt(3, tope), objetivo = a + b;
         return {
@@ -108,8 +113,8 @@
           esCorrecta: (v) => v === objetivo,
           etiqueta: (v) => String(v),
         };
-      },
-      () => {
+      } },
+      { tabla: false, crear: () => {
         const a = randInt(Math.max(10, Math.round(20 * factor)), Math.max(20, Math.round(70 * factor)));
         const b = randInt(Math.max(2, Math.round(5 * factor)), a - 1);
         const objetivo = a - b;
@@ -119,15 +124,19 @@
           esCorrecta: (v) => v === objetivo,
           etiqueta: (v) => String(v),
         };
-      },
+      } },
     ];
   }
-  function elegirRegla(factor) { return elegir(crearReglas(factor))(); }
+  function elegirRegla(factor, soloTablas) {
+    const todas = crearReglas(factor);
+    const pool = soloTablas ? todas.filter((r) => r.tabla) : todas;
+    return elegir(pool).crear();
+  }
 
   const DURACION_REGLA = 18;
 
   // ==================== INVASORES NUMÉRICOS ====================
-  function crearPartidaInvasores(dificultadId) {
+  function crearPartidaInvasores(dificultadId, soloTablas) {
     const perfil = obtenerDificultad(dificultadId);
     const denomBase = 110 / perfil.factorVelocidad;
     let tiempoRestante = Math.round(75 * perfil.factorTiempo);
@@ -135,7 +144,7 @@
     let vidas = perfil.vidas;
     let combo = 0;
     let comboMax = 0;
-    let reglaActual = elegirRegla(perfil.factorNumeros);
+    let reglaActual = elegirRegla(perfil.factorNumeros, soloTablas);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let terminada = false;
 
@@ -185,14 +194,14 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros, soloTablas); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
         return { terminada: false, reglaNueva };
       },
     };
   }
 
   // ==================== MEMORIA ESPACIAL ====================
-  function generarHechosUnicos(cantidad, factor) {
+  function generarHechosUnicos(cantidad, factor, soloTablas) {
     factor = factor || 1;
     const resultados = new Set();
     const hechos = [];
@@ -200,8 +209,14 @@
     while (hechos.length < cantidad && intentos < 500) {
       intentos++;
       let enunciado, resultado;
-      const r = Math.random();
-      if (r < 0.4) {
+      // Modo enfoque en tablas: SOLO multiplicación, mezclando tablas bajas y altas
+      // (hasta la del 12) — nunca solo las fáciles, para que no se quede "pegado".
+      const r = soloTablas ? 0 : Math.random();
+      if (soloTablas) {
+        const tope = Math.min(12, Math.max(6, Math.round(6 + 6 * factor)));
+        const a = randInt(1, tope), b = randInt(1, 12);
+        enunciado = `${a} × ${b}`; resultado = a * b;
+      } else if (r < 0.4) {
         const tope = Math.max(4, Math.round(10 * factor));
         const a = randInt(2, tope), b = randInt(2, tope);
         enunciado = `${a} × ${b}`; resultado = a * b;
@@ -220,10 +235,10 @@
   }
 
   const PARES_POR_DIFICULTAD = { principiante: 6, intermedio: 8, experto: 10, maestro: 12 };
-  function crearPartidaMemoria(dificultadId) {
+  function crearPartidaMemoria(dificultadId, soloTablas) {
     const perfil = obtenerDificultad(dificultadId);
     const numPares = PARES_POR_DIFICULTAD[perfil.id] || 8;
-    const hechos = generarHechosUnicos(numPares, perfil.factorNumeros);
+    const hechos = generarHechosUnicos(numPares, perfil.factorNumeros, soloTablas);
     let cartas = [];
     hechos.forEach((h, i) => {
       cartas.push({ id: `${i}a`, grupo: i, texto: h.enunciado, encontrada: false });
@@ -312,9 +327,20 @@
     experto: [2, 3, 4, 5, 6, 10],
     maestro: [2, 3, 4, 5, 6, 8, 10],
   };
-  function crearPartidaEscalera(dificultadId) {
+  // Modo enfoque en tablas: en vez de partes de un número, los tiles son productos
+  // a×b DISTINTOS (ej. "7 × 8" y "6 × 9") que hay que calcular y ordenar de menor a
+  // mayor resultado — como los resultados quedan cerca entre sí (56 vs 54), no se
+  // puede ordenar solo mirando el enunciado, hay que saberse las tablas de verdad.
+  const RANGO_TABLAS_POR_DIFICULTAD = {
+    principiante: { min: 1, max: 6 },
+    intermedio: { min: 1, max: 9 },
+    experto: { min: 2, max: 11 },
+    maestro: { min: 1, max: 12 },
+  };
+  function crearPartidaEscalera(dificultadId, soloTablas) {
     const perfil = obtenerDificultad(dificultadId);
     const denominadores = PARTES_POR_DIFICULTAD[perfil.id] || PARTES_POR_DIFICULTAD.intermedio;
+    const rangoTablas = RANGO_TABLAS_POR_DIFICULTAD[perfil.id] || RANGO_TABLAS_POR_DIFICULTAD.intermedio;
     let tiempoRestante = Math.round(75 * perfil.factorTiempo);
     let puntaje = 0;
     let vidas = perfil.vidas;
@@ -326,12 +352,30 @@
     let ordenObjetivo = [];
     let indiceEsperado = 0;
     let numeroBase = 0;
+    const cantidadTiles = (PARTES_POR_DIFICULTAD[perfil.id] || PARTES_POR_DIFICULTAD.intermedio).length;
 
-    function nuevaRonda() {
+    function nuevaRondaTablas() {
+      numeroBase = null;
+      const usados = new Set();
+      const pares = [];
+      let intentos = 0;
+      while (pares.length < cantidadTiles && intentos < 300) {
+        intentos++;
+        const a = randInt(rangoTablas.min, rangoTablas.max);
+        const b = randInt(1, 12);
+        const valor = a * b;
+        if (!usados.has(valor)) { usados.add(valor); pares.push({ a, b, valor }); }
+      }
+      tiles = mezclar(pares.map((p, i) => ({ id: `${escalon}-${i}`, valor: p.valor, etiqueta: `${p.a} × ${p.b}`, nombre: `${p.a} por ${p.b}` })));
+    }
+    function nuevaRondaPartes() {
       const multiplo = Math.max(1, Math.round((1 + escalon) * perfil.factorNumeros));
       numeroBase = 120 * multiplo; // 120 es divisible entre 2,3,4,5,6,8,10 — siempre da exacto
       const base = denominadores.map((d, i) => ({ id: `${escalon}-${i}-${d}`, valor: numeroBase / d, etiqueta: PARTES[d].etiqueta, nombre: PARTES[d].nombre }));
       tiles = mezclar(base);
+    }
+    function nuevaRonda() {
+      if (soloTablas) nuevaRondaTablas(); else nuevaRondaPartes();
       ordenObjetivo = [...tiles].sort((a, b) => a.valor - b.valor).map((t) => t.id);
       indiceEsperado = 0;
     }
@@ -383,11 +427,11 @@
   // "Whack-a-mole" con regla: los huecos se iluminan un instante con un número;
   // hay que tocarlos mientras están activos si cumplen la regla (reusa crearReglas).
   const NUM_HUECOS = 9;
-  function crearPartidaAgujeros(dificultadId) {
+  function crearPartidaAgujeros(dificultadId, soloTablas) {
     const perfil = obtenerDificultad(dificultadId);
     let tiempoRestante = Math.round(60 * perfil.factorTiempo);
     let puntaje = 0, vidas = perfil.vidas, combo = 0, comboMax = 0;
-    let reglaActual = elegirRegla(perfil.factorNumeros);
+    let reglaActual = elegirRegla(perfil.factorNumeros, soloTablas);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let terminada = false;
     let acumuladorSpawn = 0;
@@ -427,7 +471,7 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros, soloTablas); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
 
         huecos.forEach((h) => {
           if (h.activo) {
@@ -462,7 +506,7 @@
   // Nave en 3 carriles: hay que moverse al carril del asteroide correcto antes de
   // que llegue abajo, y esquivar los que no cumplan la regla (reusa crearReglas).
   const CARRILES = 3;
-  function crearPartidaAsteroides(dificultadId) {
+  function crearPartidaAsteroides(dificultadId, soloTablas) {
     const perfil = obtenerDificultad(dificultadId);
     const denomBase = 110 / perfil.factorVelocidad;
     let tiempoRestante = Math.round(75 * perfil.factorTiempo);
@@ -470,7 +514,7 @@
     let puntaje = 0, vidas = perfil.vidas, combo = 0, comboMax = 0;
     let terminada = false;
     let objetos = [];
-    let reglaActual = elegirRegla(perfil.factorNumeros);
+    let reglaActual = elegirRegla(perfil.factorNumeros, soloTablas);
     let tiempoParaCambiarRegla = DURACION_REGLA;
     let acumuladorSpawn = 0;
     let contadorId = 0;
@@ -495,7 +539,7 @@
         if (tiempoRestante <= 0) { tiempoRestante = 0; terminada = true; return { terminada: true, reglaNueva: false }; }
         tiempoParaCambiarRegla -= dtSegundos;
         let reglaNueva = false;
-        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
+        if (tiempoParaCambiarRegla <= 0) { reglaActual = elegirRegla(perfil.factorNumeros, soloTablas); tiempoParaCambiarRegla = DURACION_REGLA; reglaNueva = true; }
 
         const avance = dtSegundos * 0.4 * velocidad();
         objetos.forEach((o) => { o.distancia += avance; });

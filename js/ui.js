@@ -109,15 +109,21 @@
     const totalEstrellas = SM.progreso.sumaEstrellas(estado);
     const saludo = SM.mascota.frase('saludo', { nombre: esc(estado.nombre) });
 
+    // Modo enfoque: solo tablas — pedido explícito del usuario porque Santi estaba
+    // repartiendo su tiempo entre 8 planetas y 5 juegos en vez de dominar las tablas
+    // de multiplicar, que es la base urgente de todo lo demás. Con el modo activo
+    // (`estado.modoSoloTablas`, ver Ajustes) solo Tablix queda jugable; el resto se
+    // ve pero bloqueado, con el mismo lenguaje visual que un nivel bloqueado.
     const tarjetas = SM.mundos.lista.map((m) => {
       const { obtenidas, maximo } = SM.progreso.estrellasMundo(estado, m.id);
       const pct = maximo ? Math.round((obtenidas / maximo) * 100) : 0;
-      return `<button class="sm-planeta-card" data-mundo="${m.id}" style="--color-planeta:${m.color}">
-        <span class="sm-planeta-emoji">${m.emoji}</span>
+      const bloqueado = estado.modoSoloTablas && m.id !== 'tablix';
+      return `<button class="sm-planeta-card ${bloqueado ? 'bloqueado' : ''}" data-mundo="${m.id}" style="--color-planeta:${m.color}" ${bloqueado ? 'disabled' : ''}>
+        <span class="sm-planeta-emoji">${bloqueado ? '🔒' : m.emoji}</span>
         <span class="sm-planeta-nombre">${m.nombre}</span>
-        <span class="sm-planeta-subtitulo">${esc(m.subtitulo)}</span>
+        <span class="sm-planeta-subtitulo">${bloqueado ? 'Primero dominamos las tablas' : esc(m.subtitulo)}</span>
         <span class="sm-planeta-barra"><span style="width:${pct}%"></span></span>
-        <span class="sm-planeta-estrellas">⭐ ${obtenidas}/${maximo}</span>
+        <span class="sm-planeta-estrellas">${bloqueado ? '🔒 Bloqueado' : `⭐ ${obtenidas}/${maximo}`}</span>
       </button>`;
     }).join('');
 
@@ -582,13 +588,21 @@
   function pantallaArcade(root, caja, ir) {
     detenerIntervalo();
     const estado = caja.estado;
+    const soloTablas = estado.modoSoloTablas;
     const tarjetas = SM.arcade.JUEGOS.map((j) => {
       const juegoStats = estado.arcade.juegos[j.id];
       const mejor = SM.progreso.mejorPuntajeJuego(juegoStats);
+      // Modo enfoque: Escalera cambia de nombre/descripción porque su contenido
+      // real cambia por completo (ver crearPartidaEscalera en arcade.js); los otros
+      // 4 juegos mantienen su nombre — solo cambia QUÉ preguntan, no cómo se llaman.
+      const nombre = (soloTablas && j.id === 'escalera') ? 'Escalera de Tablas' : j.nombre;
+      const descripcion = (soloTablas && j.id === 'escalera')
+        ? 'Aparecen varias multiplicaciones (como 7 × 8 y 6 × 9): calcúlalas y tócalas en orden, del resultado más chico al más grande.'
+        : j.descripcion;
       return `<button class="sm-arcade-card" data-elegir="${j.id}">
         <span class="sm-arcade-emoji">${j.emoji}</span>
-        <h2>${esc(j.nombre)}</h2>
-        <p>${esc(j.descripcion)}</p>
+        <h2>${esc(nombre)}</h2>
+        <p>${esc(descripcion)}</p>
         <div class="sm-stats-fila sm-centrado">
           <div class="sm-stat-chip">🏅 Mejor puntaje: <b>${mejor}</b></div>
         </div>
@@ -601,6 +615,7 @@
         ${SM.mascota.svg('animando', 'sm-mascota-media')}
         <div><h1>🕹️ Arcade</h1><p class="sm-muted">Elige un juego y gana puntos extra</p></div>
       </header>
+      ${soloTablas ? '<p class="sm-muted sm-arcade-aviso">🎯 Modo enfoque activo: todos los juegos preguntan solo tablas de multiplicar (0 al 12).</p>' : ''}
       <div class="sm-arcade-lista">${tarjetas}</div>
       ${barraInferior('arcade')}
     </div>`;
@@ -643,7 +658,7 @@
   // ==================== INVASORES NUMÉRICOS (mini-juego) ====================
   function pantallaInvasores(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaInvasores(dificultad);
+    const partida = SM.arcade.crearPartidaInvasores(dificultad, caja.estado.modoSoloTablas);
     SM.sonido.inicioNivel();
     let naves = [];
     let corriendo = true;
@@ -780,7 +795,7 @@
   // ==================== MEMORIA ESPACIAL (mini-juego) ====================
   function pantallaMemoria(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaMemoria(dificultad);
+    const partida = SM.arcade.crearPartidaMemoria(dificultad, caja.estado.modoSoloTablas);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let bloqueado = false;
@@ -870,10 +885,12 @@
     rafArcade = requestAnimationFrame(paso);
   }
 
-  // ==================== ESCALERA NUMÉRICA (mini-juego) ====================
+  // ==================== ESCALERA (mini-juego) ====================
   function pantallaEscalera(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaEscalera(dificultad);
+    const soloTablas = caja.estado.modoSoloTablas;
+    const partida = SM.arcade.crearPartidaEscalera(dificultad, soloTablas);
+    const nombreJuego = soloTablas ? 'Escalera de Tablas' : 'Escalera de Divisores';
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -881,9 +898,10 @@
     function salir() {
       corriendo = false;
       detenerIntervalo();
-      confirmar('¿Salir de Escalera Numérica? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+      confirmar(`¿Salir de ${nombreJuego}? Perderás el puntaje de esta partida.`, 'Salir', () => ir('arcade'));
     }
 
+    const numeroBaseInicial = partida.numeroBase();
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-escalera">
       <header class="sm-barra-superior">
         <button class="sm-btn-icono" data-accion="salir">✕</button>
@@ -895,9 +913,9 @@
       </header>
       <div class="sm-escalera-info">
         <span>🪜 Escalón <b id="sm-esc-escalon">1</b></span>
-        <span class="sm-escalera-numero">🔢 <b id="sm-esc-numero">${partida.numeroBase()}</b></span>
+        ${numeroBaseInicial != null ? `<span class="sm-escalera-numero">🔢 <b id="sm-esc-numero">${numeroBaseInicial}</b></span>` : ''}
       </div>
-      <p class="sm-muted sm-escalera-instruccion">Calcula sus partes y tócalas de la MÁS CHICA a la MÁS GRANDE</p>
+      <p class="sm-muted sm-escalera-instruccion">${soloTablas ? 'Calcula los resultados y tócalos del MÁS CHICO al MÁS GRANDE' : 'Calcula sus partes y tócalas de la MÁS CHICA a la MÁS GRANDE'}</p>
       <div class="sm-escalera-tiles" id="sm-escalera-tiles"></div>
     </div>`;
     root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
@@ -906,7 +924,8 @@
       document.getElementById('sm-esc-puntaje').textContent = partida.puntaje();
       document.getElementById('sm-esc-tiempo').textContent = partida.tiempoRestante();
       document.getElementById('sm-esc-escalon').textContent = partida.escalon() + 1;
-      document.getElementById('sm-esc-numero').textContent = partida.numeroBase();
+      const elNumero = document.getElementById('sm-esc-numero');
+      if (elNumero) elNumero.textContent = partida.numeroBase();
       const vidas = partida.vidas();
       document.getElementById('sm-esc-vidas').textContent = '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, 3 - vidas));
     }
@@ -966,7 +985,7 @@
   // ==================== AGUJEROS NEGROS (mini-juego) ====================
   function pantallaAgujeros(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaAgujeros(dificultad);
+    const partida = SM.arcade.crearPartidaAgujeros(dificultad, caja.estado.modoSoloTablas);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -1077,7 +1096,7 @@
   // ==================== ESQUIVA ASTEROIDES (mini-juego) ====================
   function pantallaAsteroides(root, caja, ir, dificultad) {
     detenerIntervalo();
-    const partida = SM.arcade.crearPartidaAsteroides(dificultad);
+    const partida = SM.arcade.crearPartidaAsteroides(dificultad, caja.estado.modoSoloTablas);
     SM.sonido.inicioNivel();
     let corriendo = true;
     let ultimoTiempo = null;
@@ -1295,12 +1314,23 @@
         </label>
 
         <div class="sm-campo">
+          <span>🎯 Modo enfoque: solo tablas de multiplicar</span>
+          <p class="sm-muted" style="margin-bottom:8px">Mientras esté activo, solo Tablix queda disponible (los demás planetas se ven bloqueados) y los 5 juegos de arcade preguntan únicamente tablas de multiplicar, mezclando tablas fáciles y difíciles. Actívalo mientras Santi todavía no domina las tablas del 0 al 12; apágalo cuando esté listo para avanzar a otros temas.</p>
+          <label class="sm-campo sm-campo-fila">
+            <span>Modo enfoque activo</span>
+            <input type="checkbox" id="sm-campo-solo-tablas" ${estado.modoSoloTablas ? 'checked' : ''}>
+          </label>
+        </div>
+
+        <div class="sm-campo">
           <span>🔥 Reto diario y racha</span>
           <p class="sm-muted" style="margin-bottom:8px">Cada día Santi debe ganar esta cantidad de XP jugando lo que sea (niveles, quiz o arcade). Si un día no lo cumple, la racha vuelve a 0 al abrir la app al día siguiente.</p>
           <label class="sm-campo sm-campo-fila">
             <span>Meta diaria de XP</span>
             <input type="number" id="sm-campo-meta-diaria" min="10" step="10" value="${estado.metaDiariaXP}" style="max-width:100px">
           </label>
+          <p class="sm-muted" style="margin:8px 0">Racha actual: <b>${estado.racha.dias} día${estado.racha.dias === 1 ? '' : 's'}</b></p>
+          <button class="btn btn-sec sm-btn-mini" id="sm-btn-reiniciar-racha">🔄 Reiniciar racha a 0</button>
         </div>
 
         <div class="sm-campo">
@@ -1366,6 +1396,18 @@
     });
     root.querySelector('#sm-campo-meta-diaria').addEventListener('change', (e) => {
       SM.progreso.actualizarMetaDiaria(estado, parseInt(e.target.value, 10));
+    });
+    root.querySelector('#sm-campo-solo-tablas').addEventListener('change', (e) => {
+      SM.sonido.click();
+      SM.progreso.actualizarModoSoloTablas(estado, e.target.checked);
+      rerender();
+    });
+    root.querySelector('#sm-btn-reiniciar-racha').addEventListener('click', () => {
+      confirmar('¿Reiniciar la racha a 0 días? El reto de hoy también se reinicia.', 'Reiniciar', () => {
+        SM.sonido.click();
+        SM.progreso.reiniciarRacha(estado);
+        rerender();
+      });
     });
     function actualizarDesafioDesdeControles() {
       SM.progreso.actualizarDesafio(estado, {
