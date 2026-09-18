@@ -12,6 +12,11 @@
     switch (pantalla) {
       case 'mundo': SM.ui.pantallaMundo(root, caja, datos.mundoId, ir); break;
       case 'leccion': SM.ui.pantallaLeccion(root, caja, datos.mundoId, ir); break;
+      case 'centro-tablas': SM.ui.pantallaCentroTablas(root, caja, ir); break;
+      case 'elegir-tabla': SM.ui.pantallaElegirTablaEntreno(root, caja, ir, datos.modo); break;
+      case 'minuto-loco': SM.ui.pantallaMinutoLoco(root, caja, ir, datos.tabla); break;
+      case 'conteo-tablas': SM.ui.pantallaConteoTablas(root, caja, ir, datos.tabla); break;
+      case 'flashcards-tablas': SM.ui.pantallaFlashcardsTablas(root, caja, ir); break;
       case 'juego': SM.ui.pantallaJuego(root, caja, datos.mundoId, datos.nivelId, ir); break;
       case 'arcade': SM.ui.pantallaArcade(root, caja, ir); break;
       case 'elegir-dificultad': SM.ui.pantallaDificultadArcade(root, caja, datos.juegoId, ir); break;

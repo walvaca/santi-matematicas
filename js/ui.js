@@ -145,6 +145,17 @@
       </button>`;
     })() : '';
 
+    // Atajo directo al Centro de Tablas (js/tablas.js) mientras el modo enfoque esté
+    // activo — es lo único jugable, así que se muestra arriba en vez de obligar a
+    // entrar primero a Tablix y buscar el botón dentro.
+    const centroTablasHTML = estado.modoSoloTablas ? `<button class="sm-meta-mini" data-accion="centro-tablas" style="border-color:var(--accent)">
+      <span class="sm-meta-mini-emoji">🧠</span>
+      <span class="sm-meta-mini-info">
+        <span><b>Centro de entrenamiento de tablas</b></span>
+        <small class="sm-muted">Tarjetas rápidas, Minuto Loco, Conteo Salteado y tu mapa de dominio</small>
+      </span>
+    </button>` : '';
+
     const xpHoy = estado.retoDiario.xpHoy;
     const metaHoy = estado.metaDiariaXP;
     const cumplidoHoy = estado.retoDiario.cumplidoHoy;
@@ -169,6 +180,7 @@
         <div class="sm-stat-chip">⭐ <b>${totalEstrellas}</b> estrellas</div>
       </div>
       ${retoHTML}
+      ${centroTablasHTML}
       ${metaHTML}
       <div class="sm-planetas-grid">${tarjetas}</div>
       ${barraInferior('inicio')}
@@ -179,6 +191,8 @@
     });
     const btnMeta = root.querySelector('[data-accion="premios"]');
     if (btnMeta) btnMeta.addEventListener('click', () => { SM.sonido.click(); ir('premios'); });
+    const btnCentroTablas = root.querySelector('[data-accion="centro-tablas"]');
+    if (btnCentroTablas) btnCentroTablas.addEventListener('click', () => { SM.sonido.click(); ir('centro-tablas'); });
     cablearNavbar(root, ir);
   }
 
@@ -235,12 +249,15 @@
         <button class="sm-btn-icono" data-accion="reiniciar-planeta" title="Reiniciar todo este planeta">🔄</button>
       </header>
       <button class="btn sm-btn-leccion" data-accion="leccion">📘 Ver lección</button>
+      ${mundoId === 'tablix' ? '<button class="btn" style="margin-bottom:14px" data-accion="centro-tablas">🧠 Centro de entrenamiento de tablas</button>' : ''}
       <div class="sm-niveles-lista">${nodos}</div>
       <div class="sm-quiz-zona">${quizHTML}</div>
     </div>`;
 
     root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('inicio'); });
     root.querySelector('[data-accion="leccion"]').addEventListener('click', () => { SM.sonido.click(); ir('leccion', { mundoId }); });
+    const btnCentroTablas = root.querySelector('[data-accion="centro-tablas"]');
+    if (btnCentroTablas) btnCentroTablas.addEventListener('click', () => { SM.sonido.click(); ir('centro-tablas'); });
     root.querySelector('[data-accion="reiniciar-planeta"]').addEventListener('click', () => {
       SM.sonido.click();
       confirmar(`¿Reiniciar todo ${mundo.nombre}? Se perderán las estrellas de sus ${mundo.niveles.length} niveles y se vuelven a bloquear.`, 'Reiniciar planeta', () => {
@@ -313,6 +330,323 @@
       });
     }
     render();
+  }
+
+  // ==================== CENTRO DE TABLAS (hub) ====================
+  function pantallaCentroTablas(root, caja, ir) {
+    detenerIntervalo();
+    const estado = caja.estado;
+    const resumen = SM.progreso.resumenDominioTablas(estado);
+
+    let bannerExamen = '';
+    if (estado.examenTablas && estado.examenTablas.fecha) {
+      const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+      const fechaExamen = new Date(`${estado.examenTablas.fecha}T00:00:00`);
+      const dias = Math.round((fechaExamen - hoy) / 86400000);
+      const nota = esc(estado.examenTablas.nota || 'tu examen');
+      let texto;
+      if (dias > 1) texto = `📅 Faltan <b>${dias} días</b> para: ${nota} — ¡vamos a lograrlo!`;
+      else if (dias === 1) texto = `📅 ¡Mañana es el día! ${nota} — un último empujón 💪`;
+      else if (dias === 0) texto = `📅 ¡Hoy es el día! ${nota} — tú puedes, Santi 🚀`;
+      else texto = `✅ Ya diste ${nota} — ¡sigue practicando para no perder lo aprendido!`;
+      bannerExamen = `<div class="sm-reto-diario"><span class="sm-reto-diario-emoji">📅</span><div class="sm-meta-mini-info"><span>${texto}</span></div></div>`;
+    }
+
+    const plan = estado.planTablas || [false, false, false, false, false];
+    const PLAN_DIAS = [
+      { titulo: 'Día 1 — Las fáciles y los trucos', detalle: 'Ve la lección de trucos, y practica 2, 5 y 10 con Minuto Loco.' },
+      { titulo: 'Día 2 — Dobles y la manito del 9', detalle: 'Minuto Loco de las tablas 4, 8 y 9 (usa el truco de los dedos).' },
+      { titulo: 'Día 3 — Las difíciles: 6 y 7', detalle: 'Minuto Loco de 6 y 7, y una tanda de Tarjetas Rápidas.' },
+      { titulo: 'Día 4 — Todo mezclado', detalle: 'Tarjetas Rápidas + Contrarreloj de Tablix + un juego de Arcade.' },
+      { titulo: 'Día 5 — Repaso final', detalle: 'Quiz Final de Tablix y Conteo Salteado de las tablas que más te cuesten.' },
+    ];
+    const planHTML = PLAN_DIAS.map((d, i) => `
+      <label class="sm-plan-dia ${plan[i] ? 'hecho' : ''}">
+        <input type="checkbox" data-plan="${i}" ${plan[i] ? 'checked' : ''}>
+        <span><b>${esc(d.titulo)}</b><br><small class="sm-muted">${esc(d.detalle)}</small></span>
+      </label>`).join('');
+
+    const mapaHTML = resumen.porTabla.map((t) => {
+      const nivel = t.pct >= 80 ? 'alto' : t.pct >= 40 ? 'medio' : 'bajo';
+      return `<div class="sm-mapa-celda sm-mapa-${nivel}"><b>${t.tabla}</b><small>${t.pct}%</small></div>`;
+    }).join('');
+
+    root.innerHTML = `<div class="sm-pantalla" style="--color-planeta:#4fd1ff">
+      <header class="sm-header-mundo">
+        <button class="sm-btn-icono" data-accion="volver">←</button>
+        <div><h1>🧠 Centro de Tablas</h1><p class="sm-muted">Métodos extra para dominar las tablas rápido</p></div>
+      </header>
+      ${bannerExamen}
+      <div class="sm-stats-fila sm-centrado">
+        <div class="sm-stat-chip">🧠 ${resumen.dominadas}/${resumen.total} hechos dominados (${resumen.pct}%)</div>
+      </div>
+      <div class="sm-arcade-lista" style="margin:14px 0">
+        <button class="sm-arcade-card" data-ir="flashcards-tablas">
+          <span class="sm-arcade-emoji">🃏</span>
+          <h2>Tarjetas Rápidas</h2>
+          <p>Repaso inteligente: pregunta más las que se te olvidan, y menos las que ya dominas.</p>
+          <div class="btn">▶️ Practicar 15 tarjetas</div>
+        </button>
+        <button class="sm-arcade-card" data-ir="elegir-tabla-minuto">
+          <span class="sm-arcade-emoji">⏱️</span>
+          <h2>Minuto Loco</h2>
+          <p>Elige una tabla y entrénala sola, a contrarreloj, hasta que te salga sin pensar.</p>
+          <div class="btn">▶️ Elegir tabla</div>
+        </button>
+        <button class="sm-arcade-card" data-ir="elegir-tabla-conteo">
+          <span class="sm-arcade-emoji">🔢</span>
+          <h2>Conteo Salteado</h2>
+          <p>Memoriza la secuencia de cada tabla (2, 4, 6, 8...) para completarla sin calcular.</p>
+          <div class="btn">▶️ Elegir tabla</div>
+        </button>
+      </div>
+      <h2 style="margin-top:6px">🗺️ Tu mapa de tablas</h2>
+      <p class="sm-muted" style="margin-bottom:8px">Verde = dominada, amarillo = casi, rojo = a practicar. Se llena jugando Tarjetas Rápidas y Minuto Loco.</p>
+      <div class="sm-mapa-tablas">${mapaHTML}</div>
+      <h2 style="margin-top:16px">🗓️ Plan de 5 días</h2>
+      <div class="sm-plan-lista">${planHTML}</div>
+    </div>`;
+
+    root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('mundo', { mundoId: 'tablix' }); });
+    root.querySelector('[data-ir="flashcards-tablas"]').addEventListener('click', () => { SM.sonido.click(); ir('flashcards-tablas'); });
+    root.querySelector('[data-ir="elegir-tabla-minuto"]').addEventListener('click', () => { SM.sonido.click(); ir('elegir-tabla', { modo: 'minuto' }); });
+    root.querySelector('[data-ir="elegir-tabla-conteo"]').addEventListener('click', () => { SM.sonido.click(); ir('elegir-tabla', { modo: 'conteo' }); });
+    root.querySelectorAll('[data-plan]').forEach((chk) => {
+      chk.addEventListener('change', () => { SM.sonido.click(); SM.progreso.togglePlanTablas(estado, Number(chk.dataset.plan)); });
+    });
+  }
+
+  // ==================== CENTRO DE TABLAS: elegir tabla (Minuto Loco / Conteo) ====================
+  function pantallaElegirTablaEntreno(root, caja, ir, modo) {
+    detenerIntervalo();
+    const estado = caja.estado;
+    const resumen = SM.progreso.resumenDominioTablas(estado);
+    const esMinuto = modo === 'minuto';
+    const tarjetas = resumen.porTabla.map((t) => `<button class="sm-tabla-elegir-card" data-tabla="${t.tabla}">
+        <span class="sm-tabla-elegir-num">${t.tabla}</span>
+        <span class="sm-tabla-elegir-info">
+          <span class="sm-tabla-elegir-dominio">${t.dominadas}/12 dominadas</span>
+          <span class="sm-planeta-barra"><span style="width:${t.pct}%"></span></span>
+          <small class="sm-muted">${esc(SM.tablasCentro.TRUCOS[t.tabla] || '')}</small>
+        </span>
+      </button>`).join('');
+
+    root.innerHTML = `<div class="sm-pantalla">
+      <header class="sm-header-mundo">
+        <button class="sm-btn-icono" data-accion="volver">←</button>
+        <div><h1>${esMinuto ? '⏱️ Minuto Loco' : '🔢 Conteo Salteado'}</h1>
+        <p class="sm-muted">${esMinuto ? 'Elige una tabla y entrénala a fondo, cronometrada' : 'Elige una tabla para practicar su secuencia'}</p></div>
+      </header>
+      <div class="sm-tabla-elegir-lista">${tarjetas}</div>
+    </div>`;
+    root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('centro-tablas'); });
+    root.querySelectorAll('[data-tabla]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        SM.sonido.click();
+        ir(esMinuto ? 'minuto-loco' : 'conteo-tablas', { tabla: Number(btn.dataset.tabla) });
+      });
+    });
+  }
+
+  // ==================== CENTRO DE TABLAS: sesión genérica ====================
+  // Minuto Loco, Tarjetas Rápidas y Conteo Salteado (SM.tablasCentro) comparten la
+  // misma forma de sesión, así que se pintan con un único renderer en vez de
+  // triplicar pantallaJuego. `esContrarreloj` se detecta por si la sesión trae
+  // tick() (Minuto Loco) — si no, es de N preguntas fijas (numeroPregunta/total).
+  function pantallaSesionTablas(root, caja, ir, sesion, opciones) {
+    detenerIntervalo();
+    const estado = caja.estado;
+    const esContrarreloj = typeof sesion.tick === 'function';
+    let respondiendo = false;
+    let buffer = '';
+    let relojPausado = false;
+    SM.sonido.inicioNivel();
+
+    function salir() {
+      detenerIntervalo();
+      confirmar('¿Salir de este entrenamiento? Perderás el progreso de este intento.', 'Salir', () => ir(opciones.volverA.pantalla, opciones.volverA.datos));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-juego">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-progreso-zona" id="sm-progreso-zona"></div>
+        <div class="sm-racha-chip" id="sm-racha-chip"></div>
+      </header>
+      <p class="sm-muted" style="text-align:center;margin-bottom:6px">${esc(opciones.subtitulo)}</p>
+      <div id="sm-pregunta-zona"></div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+
+    function renderProgreso() {
+      const zona = document.getElementById('sm-progreso-zona');
+      if (esContrarreloj) {
+        const t = sesion.tiempoRestante();
+        zona.innerHTML = `<div class="sm-timer ${t <= 10 ? 'urgente' : ''}">⏱️ ${t}s</div>`;
+      } else {
+        const n = sesion.numeroPregunta(), total = sesion.totalPreguntas();
+        const pct = Math.min(100, Math.round(((n - 1) / total) * 100));
+        zona.innerHTML = `<div class="sm-progreso-texto">${Math.min(n, total)}/${total}</div>
+          <div class="sm-progreso-barra"><span style="width:${pct}%"></span></div>`;
+      }
+      document.getElementById('sm-racha-chip').innerHTML = sesion.racha() >= 2 ? `🔥 ${sesion.racha()}` : '';
+    }
+
+    function renderPregunta() {
+      respondiendo = false;
+      buffer = '';
+      const p = sesion.preguntaActual();
+      const zona = document.getElementById('sm-pregunta-zona');
+      zona.innerHTML = `
+        ${SM.mascota.svg('feliz', 'sm-mascota-media sm-mascota-chica')}
+        <div class="sm-pregunta-card"><p class="sm-pregunta-texto">${esc(p.enunciado)}</p></div>
+        <button class="sm-btn-profesor" data-accion="explicar">🤖 ¿Cómo se resuelve?</button>
+        <div class="sm-numero-zona">
+          <div class="sm-numero-display" id="sm-numero-display">&nbsp;</div>
+          <div class="sm-teclado">
+            ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="sm-tecla" data-tecla="${d}">${d}</button>`).join('')}
+            <button class="sm-tecla" data-tecla="borrar">⌫</button>
+            <button class="sm-tecla" data-tecla="0">0</button>
+            <button class="sm-tecla sm-tecla-ok" data-tecla="ok">✓</button>
+          </div>
+        </div>
+        <div id="sm-feedback-zona"></div>`;
+
+      zona.querySelector('[data-accion="explicar"]').addEventListener('click', () => {
+        SM.sonido.click();
+        relojPausado = true;
+        mostrarExplicacion('tablix', () => { relojPausado = false; });
+      });
+      zona.querySelectorAll('.sm-tecla').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const t = btn.dataset.tecla;
+          if (respondiendo) return;
+          if (t === 'borrar') buffer = buffer.slice(0, -1);
+          else if (t === 'ok') { if (buffer !== '') manejarRespuesta(buffer); return; }
+          else if (buffer.length < 4) buffer += t;
+          document.getElementById('sm-numero-display').textContent = buffer || ' ';
+        });
+      });
+      renderProgreso();
+    }
+
+    function mostrarPopupPuntos(racha) {
+      const zona = root.querySelector('.sm-pregunta-card');
+      if (!zona) return;
+      const multiplicador = Math.max(1, Math.min(racha, 5));
+      const popup = document.createElement('div');
+      popup.className = 'sm-puntos-popup';
+      popup.textContent = racha >= 2 ? `+${5 * multiplicador} · combo x${multiplicador}` : '+5';
+      zona.appendChild(popup);
+      setTimeout(() => popup.remove(), 900);
+    }
+
+    function manejarRespuesta(valor) {
+      if (respondiendo) return;
+      respondiendo = true;
+      const r = sesion.responder(valor, estado);
+      SM.sonido[r.correcta ? 'acierto' : 'error']();
+      if (r.correcta) mostrarPopupPuntos(r.racha);
+      root.querySelectorAll('.sm-tecla').forEach((b) => { b.disabled = true; });
+      const mensaje = r.correcta
+        ? SM.mascota.frase(r.racha >= 3 ? 'racha' : 'acierto', { n: r.racha })
+        : SM.mascota.frase('error', { respuesta: r.respuestaCorrecta });
+      document.getElementById('sm-feedback-zona').innerHTML = `
+        <div class="sm-feedback-panel ${r.correcta ? 'correcta' : 'incorrecta'}">
+          <p>${esc(mensaje)}</p>
+          <button class="btn" data-accion="continuar">${sesion.terminada() ? 'Ver resultados 🚀' : 'Siguiente →'}</button>
+        </div>`;
+      document.getElementById('sm-feedback-zona').querySelector('[data-accion="continuar"]').addEventListener('click', () => {
+        SM.sonido.click();
+        if (sesion.terminada()) { mostrarResultados(); return; }
+        sesion.avanzar();
+        renderPregunta();
+      });
+      renderProgreso();
+    }
+
+    function mostrarResultados() {
+      detenerIntervalo();
+      const r = sesion.finalizar(estado);
+      const mensaje = SM.mascota.frase(`resultado${r.estrellas}`, { nombre: esc(estado.nombre) });
+      const titulo = r.estrellas === 3 ? '¡Entrenamiento perfecto!' : (r.estrellas >= 1 ? '¡Buen entrenamiento!' : '¡Sigue practicando!');
+
+      root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
+        <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
+        ${SM.mascota.svg(r.estrellas >= 1 ? 'celebrando' : 'consolando', 'sm-mascota-media')}
+        <h1>${titulo}</h1>
+        <div class="sm-resultado-estrellas">${estrellasHTML(r.estrellas)}</div>
+        <p>${mensaje}</p>
+        <div class="sm-stats-fila sm-centrado">
+          <div class="sm-stat-chip">✅ ${r.correctas}/${r.total}</div>
+          <div class="sm-stat-chip">✨ +${r.xpGanado} XP</div>
+        </div>
+        ${r.retoCumplidoAhora ? `<div class="sm-logros-nuevos"><div class="sm-logro-chip sm-reto-chip">🎯 ¡Reto diario cumplido! <b>Racha: ${estado.racha.dias} 🔥</b></div></div>` : ''}
+        ${r.logrosNuevos.length ? `<div class="sm-logros-nuevos">${r.logrosNuevos.map((l) => `
+          <div class="sm-logro-chip">${l.icono} <b>${esc(l.nombre)}</b><br><small>${esc(l.descripcion)}</small></div>`).join('')}</div>` : ''}
+        ${r.metasNuevas.length ? `<div class="sm-logros-nuevos">${r.metasNuevas.map((m) => `
+          <div class="sm-logro-chip sm-meta-chip">${m.emoji} ¡Meta alcanzada! <b>${esc(m.nombre)}</b><br><small>Pídesela a papá o mamá 🎉</small></div>`).join('')}</div>` : ''}
+        <div class="sm-resultado-botones">
+          <button class="btn btn-sec" data-accion="reintentar">🔁 Reintentar</button>
+          <button class="btn btn-sec" data-accion="volver">${esc(opciones.volverA.texto || '🗺️ Volver')}</button>
+        </div>
+      </div>`;
+
+      SM.sonido.nivelCompletado(r.estrellas);
+      if (r.estrellas === 3) lanzarConfeti(document.getElementById('sm-confeti-zona'));
+      if (r.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
+      else if (r.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
+      else if (r.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
+
+      root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); opciones.reintentar(); });
+      root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir(opciones.volverA.pantalla, opciones.volverA.datos); });
+    }
+
+    renderPregunta();
+    if (esContrarreloj) {
+      intervaloJuego = setInterval(() => {
+        if (relojPausado) return;
+        const termino = sesion.tick();
+        renderProgreso();
+        if (termino) mostrarResultados();
+      }, 1000);
+    }
+  }
+
+  function pantallaMinutoLoco(root, caja, ir, tabla) {
+    const iniciar = () => {
+      const sesion = SM.tablasCentro.crearSesionMinutoLoco(tabla, 60);
+      pantallaSesionTablas(root, caja, ir, sesion, {
+        subtitulo: `⏱️ Minuto Loco — tabla del ${tabla}`,
+        volverA: { pantalla: 'elegir-tabla', datos: { modo: 'minuto' }, texto: '🗺️ Elegir otra tabla' },
+        reintentar: iniciar,
+      });
+    };
+    iniciar();
+  }
+
+  function pantallaFlashcardsTablas(root, caja, ir) {
+    const iniciar = () => {
+      const sesion = SM.tablasCentro.crearSesionFlashcards(caja.estado, 15);
+      pantallaSesionTablas(root, caja, ir, sesion, {
+        subtitulo: '🃏 Tarjetas Rápidas — las que más te cuestan primero',
+        volverA: { pantalla: 'centro-tablas', datos: {}, texto: '🧠 Volver al Centro de Tablas' },
+        reintentar: iniciar,
+      });
+    };
+    iniciar();
+  }
+
+  function pantallaConteoTablas(root, caja, ir, tabla) {
+    const iniciar = () => {
+      const sesion = SM.tablasCentro.crearSesionConteo(tabla, 8);
+      pantallaSesionTablas(root, caja, ir, sesion, {
+        subtitulo: `🔢 Conteo Salteado — tabla del ${tabla}`,
+        volverA: { pantalla: 'elegir-tabla', datos: { modo: 'conteo' }, texto: '🗺️ Elegir otra tabla' },
+        reintentar: iniciar,
+      });
+    };
+    iniciar();
   }
 
   // ==================== JUEGO ====================
@@ -1323,6 +1657,23 @@
         </div>
 
         <div class="sm-campo">
+          <span>📅 Examen o sustentación de tablas</span>
+          <p class="sm-muted" style="margin-bottom:8px">Si Santi tiene una fecha límite (examen, sustentación), el Centro de Tablas le muestra una cuenta regresiva motivadora. Déjalo vacío si no aplica ahora.</p>
+          <label class="sm-campo sm-campo-fila">
+            <span>Fecha</span>
+            <input type="date" id="sm-campo-examen-fecha" value="${estado.examenTablas ? esc(estado.examenTablas.fecha) : ''}">
+          </label>
+          <label class="sm-campo">
+            <span>Nota (ej. "Sustentación de recuperación")</span>
+            <input type="text" id="sm-campo-examen-nota" maxlength="60" value="${estado.examenTablas ? esc(estado.examenTablas.nota || '') : ''}">
+          </label>
+          <div class="sm-meta-admin-botones">
+            <button class="btn btn-sec sm-btn-mini" id="sm-btn-guardar-examen">💾 Guardar</button>
+            ${estado.examenTablas ? '<button class="btn btn-sec sm-btn-mini" id="sm-btn-quitar-examen">🗑️ Quitar cuenta regresiva</button>' : ''}
+          </div>
+        </div>
+
+        <div class="sm-campo">
           <span>🔥 Reto diario y racha</span>
           <p class="sm-muted" style="margin-bottom:8px">Cada día Santi debe ganar esta cantidad de XP jugando lo que sea (niveles, quiz o arcade). Si un día no lo cumple, la racha vuelve a 0 al abrir la app al día siguiente.</p>
           <label class="sm-campo sm-campo-fila">
@@ -1397,6 +1748,19 @@
     root.querySelector('#sm-campo-meta-diaria').addEventListener('change', (e) => {
       SM.progreso.actualizarMetaDiaria(estado, parseInt(e.target.value, 10));
     });
+    root.querySelector('#sm-btn-guardar-examen').addEventListener('click', () => {
+      SM.sonido.click();
+      const fecha = root.querySelector('#sm-campo-examen-fecha').value;
+      const nota = root.querySelector('#sm-campo-examen-nota').value;
+      SM.progreso.actualizarExamenTablas(estado, { fecha, nota });
+      rerender();
+    });
+    const btnQuitarExamen = root.querySelector('#sm-btn-quitar-examen');
+    if (btnQuitarExamen) btnQuitarExamen.addEventListener('click', () => {
+      SM.sonido.click();
+      SM.progreso.actualizarExamenTablas(estado, { fecha: null, nota: '' });
+      rerender();
+    });
     root.querySelector('#sm-campo-solo-tablas').addEventListener('change', (e) => {
       SM.sonido.click();
       SM.progreso.actualizarModoSoloTablas(estado, e.target.checked);
@@ -1448,6 +1812,7 @@
   window.SM = window.SM || {};
   window.SM.ui = {
     pantallaInicio, pantallaMundo, pantallaLeccion, pantallaJuego,
+    pantallaCentroTablas, pantallaElegirTablaEntreno, pantallaMinutoLoco, pantallaConteoTablas, pantallaFlashcardsTablas,
     pantallaArcade, pantallaDificultadArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
     pantallaAgujeros, pantallaAsteroides,
     pantallaPremios, pantallaLogros, pantallaAjustes,

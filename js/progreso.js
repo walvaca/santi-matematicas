@@ -29,6 +29,10 @@
       condicion: (e) => e.racha.dias >= 14 },
     { id: 'veloz', nombre: 'Veloz como un cohete', icono: '⚡', descripcion: 'Responde 15 o más en un nivel contrarreloj.',
       condicion: (e) => e.mejorContrarreloj >= 15 },
+    { id: 'minuto-oro', nombre: 'Minuto de oro', icono: '⏱️', descripcion: 'Consigue 10 o más aciertos en el Minuto Loco de alguna tabla (Centro de Tablas).',
+      condicion: (e) => (e.mejorMinutoLoco || 0) >= 10 },
+    { id: 'cerebro-tablas', nombre: 'Cerebro de tablas', icono: '🧠', descripcion: 'Domina las 144 combinaciones de las tablas del 1 al 12 (Tarjetas Rápidas / Minuto Loco).',
+      condicion: (e) => todasFactsDominadas(e) },
     { id: 'arcade-cadete', nombre: 'Cadete cazador', icono: '🎮', descripcion: 'Consigue 100 puntos en algún juego de Arcade (en cualquier dificultad).',
       condicion: (e) => Object.values(e.arcade.juegos).some((j) => mejorPuntajeJuego(j) >= 100) },
     { id: 'arcade-francotirador', nombre: 'Francotirador espacial', icono: '🛸', descripcion: 'Consigue 300 puntos en algún juego de Arcade (en cualquier dificultad).',
@@ -61,6 +65,79 @@
     const mundo = SM.mundos.obtener(mundoId);
     if (!mundo) return false;
     return mundo.niveles.every((n) => (e.estrellas[`${mundoId}:${n.id}`] || 0) >= 3);
+  }
+
+  // ---------- Centro de Tablas (js/tablas.js): dominio por "hecho" individual ----------
+  // A propósito el mapa de dominio se alimenta SOLO de Tarjetas Rápidas y Minuto Loco
+  // (ver registrarFactTabla, llamado desde tablas.js), no de los niveles normales de
+  // Tablix — así no hay que tocar el motor compartido SM.juego que usan los otros 7
+  // planetas. "Dominado" = al menos 2 intentos y 80% o más de acierto.
+  function statsFact(estado, a, b) {
+    const s = (estado.tablasFacts && estado.tablasFacts[`${a}x${b}`]) || { aciertos: 0, fallos: 0 };
+    const intentos = s.aciertos + s.fallos;
+    return { aciertos: s.aciertos, fallos: s.fallos, intentos, precision: intentos ? s.aciertos / intentos : 0 };
+  }
+  function registrarFactTabla(estado, a, b, correcta) {
+    const clave = `${a}x${b}`;
+    if (!estado.tablasFacts[clave]) estado.tablasFacts[clave] = { aciertos: 0, fallos: 0 };
+    if (correcta) estado.tablasFacts[clave].aciertos += 1; else estado.tablasFacts[clave].fallos += 1;
+    // sin guardar() a propósito: se persiste junto con el resto al terminar la sesión
+    // (registrarResultadoMetodoTablas), igual que las estrellas de un nivel normal
+    // solo se guardan al finalizar, no pregunta por pregunta.
+  }
+  function dominaFact(estado, a, b) {
+    const s = statsFact(estado, a, b);
+    return s.intentos >= 2 && s.precision >= 0.8;
+  }
+  function resumenDominioTablas(estado) {
+    const porTabla = [];
+    let dominadasTotal = 0;
+    for (let a = 1; a <= 12; a++) {
+      let dominadas = 0;
+      for (let b = 1; b <= 12; b++) { if (dominaFact(estado, a, b)) dominadas += 1; }
+      dominadasTotal += dominadas;
+      porTabla.push({ tabla: a, dominadas, total: 12, pct: Math.round((dominadas / 12) * 100) });
+    }
+    return { porTabla, dominadas: dominadasTotal, total: 144, pct: Math.round((dominadasTotal / 144) * 100) };
+  }
+  function todasFactsDominadas(estado) { return resumenDominioTablas(estado).dominadas >= 144; }
+
+  // Registra el resultado de una sesión del Centro de Tablas (Tarjetas Rápidas, Minuto
+  // Loco o Conteo Salteado) — no son "niveles" de mundos.js, así que no pasan por
+  // registrarResultadoNivel, pero sí alimentan el mismo XP/racha/logros/metas que todo
+  // lo demás. `extra.minutoLoco` (aciertos) actualiza el récord para el logro "Minuto de oro".
+  function registrarResultadoMetodoTablas(estado, xpGanado, extra) {
+    if (extra && typeof extra.minutoLoco === 'number') {
+      estado.mejorMinutoLoco = Math.max(estado.mejorMinutoLoco || 0, extra.minutoLoco);
+    }
+    const retoCumplidoAhora = sumarXP(estado, xpGanado);
+    const logrosNuevos = [];
+    LOGROS.forEach((l) => {
+      if (!estado.logros.includes(l.id) && l.condicion(estado)) {
+        estado.logros.push(l.id);
+        logrosNuevos.push(l);
+      }
+    });
+    const metasNuevas = revisarMetasAlcanzadas(estado);
+    guardar(estado);
+    return { xpGanado, logrosNuevos, metasNuevas, retoCumplidoAhora };
+  }
+
+  // Cuenta regresiva opcional para un examen/sustentación (Centro de Tablas la muestra
+  // como banner motivador). `fecha` null/vacía la quita. Editable por un adulto en Ajustes.
+  function actualizarExamenTablas(estado, { fecha, nota }) {
+    estado.examenTablas = fecha ? { fecha, nota: (nota || '').trim().slice(0, 60) } : null;
+    guardar(estado);
+    return estado;
+  }
+
+  // Checklist del "Plan de 5 días" del Centro de Tablas — 5 casillas que el adulto o
+  // Santi marcan a mano según avanzan, sin ninguna lógica de desbloqueo detrás.
+  function togglePlanTablas(estado, indice) {
+    if (!estado.planTablas) estado.planTablas = [false, false, false, false, false];
+    estado.planTablas[indice] = !estado.planTablas[indice];
+    guardar(estado);
+    return estado;
   }
 
   // Mejor puntaje de un juego de arcade, sin importar en qué dificultad se logró.
@@ -154,7 +231,22 @@
       // `cargar()`) — a diferencia de otros valores nuevos de esta app, este sí
       // debía aplicar de inmediato a la partida real de Santi, por pedido explícito.
       modoSoloTablas: true,
+      // Centro de Tablas (js/tablas.js): dominio por hecho individual ("axb" -> {aciertos,
+      // fallos}), récord del Minuto Loco, y checklist del plan de 5 días.
+      tablasFacts: {},
+      mejorMinutoLoco: 0,
+      planTablas: [false, false, false, false, false],
+      // Cuenta regresiva por defecto — pedido explícito y urgente del usuario
+      // (2026-09-16/17): Santi tiene sustentación de recuperación el lunes 2026-09-21 y
+      // debe saberse todas las tablas para ese día. Igual que `modoSoloTablas`, este
+      // default SÍ debe aplicar de inmediato a la partida YA GUARDADA de Santi (ver
+      // `cargar()`) — un adulto puede editarla o quitarla en Ajustes en cualquier momento.
+      examenTablas: examenTablasPorDefecto(),
     };
+  }
+
+  function examenTablasPorDefecto() {
+    return { fecha: '2026-09-21', nota: 'Sustentación de recuperación de matemáticas' };
   }
 
   // Para bóvedas guardadas antes de que existiera `progresoMaximo`: reconstruye el
@@ -221,6 +313,15 @@
         // existiera este campo (`typeof ... === 'boolean'` es la única forma de
         // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
         modoSoloTablas: typeof guardado.modoSoloTablas === 'boolean' ? guardado.modoSoloTablas : true,
+        tablasFacts: guardado.tablasFacts || {},
+        mejorMinutoLoco: guardado.mejorMinutoLoco || 0,
+        planTablas: guardado.planTablas || [false, false, false, false, false],
+        // `!== undefined` (no `typeof boolean`, porque acá el valor es un objeto o null):
+        // una bóveda guardada ANTES de que existiera este campo nunca tuvo la clave, así
+        // que se le aplica el default de una vez (mismo espíritu que modoSoloTablas). Si
+        // el adulto ya la quitó a mano desde Ajustes, queda guardada como `null` y se
+        // respeta (no vuelve a aparecer sola).
+        examenTablas: guardado.examenTablas !== undefined ? guardado.examenTablas : examenTablasPorDefecto(),
       });
     } catch (err) {
       console.error('No se pudo leer el progreso guardado', err);
@@ -494,5 +595,7 @@
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
     actualizarModoSoloTablas, reiniciarRacha,
+    statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,
+    actualizarExamenTablas, togglePlanTablas,
   };
 })();

@@ -22,7 +22,7 @@ un cambio grande que valga la pena marcar como hito, seguir con
 - Sin framework, sin build step. `index.html` (estructura + CSS en `<style>`) + JS
   vanilla en `js/*.js`, cada archivo cuelga de un namespace `window.SM`
   (`SM.progreso`, `SM.mundos`, `SM.generadores`, `SM.mascota`, `SM.sonido`, `SM.juego`,
-  `SM.arcade`, `SM.ui`), cargados en orden fijo desde `index.html`. No hay `package.json`.
+  `SM.arcade`, `SM.tablasCentro`, `SM.ui`), cargados en orden fijo desde `index.html`. No hay `package.json`.
 - Persistencia: **localStorage** (clave `superSantiProgreso`) — estrellas por nivel,
   XP total, racha de días, logros. Es JSON pequeño, no hace falta IndexedDB.
 - `manifest.json` + `sw.js` — PWA instalable/offline, mismo patrón que
@@ -63,7 +63,9 @@ en un nivel para abrir el siguiente).
    reforzar las tablas objetivamente más difíciles (6,7,8,9) sin aislarlas del todo
    (siempre mezcladas con un par de fáciles). Ver el comentario en `mundos.js` junto
    al array de niveles de Tablix antes de tocarlo — repetir un número en `rango` es
-   la forma de subirle peso/frecuencia sin cambiar `generadores.js`.
+   la forma de subirle peso/frecuencia sin cambiar `generadores.js`. Además de estos
+   niveles, Tablix tiene un **Centro de Tablas** con métodos extra (Minuto Loco,
+   Tarjetas Rápidas, Conteo Salteado) — ver la sección propia más abajo.
 2. **Numeria** (11 niveles) — suma y resta, con/sin llevar, 1 a 4 dígitos, problemas
    cortos (suma y resta por separado).
 3. **Multiplux** (10 niveles) — multiplicación de varios dígitos, construye sobre las
@@ -213,6 +215,66 @@ el progreso" — pedido explícito del usuario ("volvamos a iniciar desde 00"). 
 toca `estado.racha` y `estado.retoDiario`; NUNCA toca estrellas/XP/logros, que en
 esta app nunca se borran solos (mismo principio documentado arriba para el reto
 diario).
+
+## Centro de Tablas: métodos extra para dominar las tablas rápido (`js/tablas.js`)
+Pedido explícito y urgente del usuario (2026-09-17): Santi perdió la materia, está en
+recuperación y tiene sustentación el lunes 2026-09-21 — para ese día debe saberse
+TODAS las tablas. Se pidió reforzar la app "mediante módulos de acuerdo a cada
+tema", empezando por un módulo de tablas con varios métodos comprobados de
+aprendizaje (no solo más niveles). Nuevo namespace `SM.tablasCentro` (archivo propio
+`js/tablas.js`, cargado entre `lecciones.js` y `juego.js`) con 3 herramientas, cada
+una un método distinto:
+- **Minuto Loco** (`crearSesionMinutoLoco`): fluidez cronometrada (60s) en UNA sola
+  tabla elegida por Santi — estilo "Mad Minute", el método clásico para automatizar
+  una tabla en pocos días. Preguntas b=1..12 barajadas sin repetir hasta cubrir la
+  tabla entera.
+- **Tarjetas Rápidas** (`crearSesionFlashcards`): 15 preguntas de recuerdo directo,
+  priorizando los "hechos" (combinación a×b, a y b entre 1 y 12, se excluye ×0 por
+  trivial) que Santi nunca ha practicado o más falla — repetición espaciada
+  simplificada (retrieval practice), no un banco fijo.
+- **Conteo Salteado** (`crearSesionConteo`): memorizar la secuencia 0, tabla,
+  2×tabla... de una tabla elegida, con preguntas "qué sigue" mostrando los últimos
+  4 términos.
+
+**Decisiones importantes a respetar si se vuelve a tocar este módulo:**
+- Las 3 sesiones piden la respuesta ESCRITA (teclado numérico), nunca opción
+  múltiple — a propósito distinto del resto de Tablix (`generadores.js` genera
+  siempre opción múltiple para `tablas`), porque memorizar de verdad exige producir
+  el resultado, no reconocerlo entre 4 opciones.
+- A propósito NO tocan el motor compartido `SM.juego` (usado por los otros 7
+  planetas) ni `generadores.js` — tienen su propia sesión en `tablas.js`, con la
+  misma forma (`preguntaActual/racha/correctas/terminada/responder/avanzar/
+  finalizar/calcularEstrellas`) para que `ui.js` las pinte con un único renderer
+  genérico (`pantallaSesionTablas`) en vez de triplicar `pantallaJuego`.
+- El "mapa de dominio" (`SM.progreso.resumenDominioTablas`, estado.tablasFacts,
+  `"axb" -> {aciertos,fallos}`) se alimenta SOLO de Tarjetas Rápidas y Minuto Loco
+  (vía `SM.progreso.registrarFactTabla`), **no** de los niveles normales de Tablix —
+  fue una decisión consciente para no tocar `SM.juego`/`generadores.js`. Si se pide
+  que el mapa también aprenda de los niveles normales, hay que threadear `estado`
+  hasta `sesion.responder()` en `juego.js` (hoy no lo recibe, solo `finalizar()` sí).
+  "Dominado" = al menos 2 intentos y 80%+ de acierto en ese hecho puntual.
+- XP y logros de estas 3 sesiones NO pasan por `registrarResultadoNivel` (no son
+  niveles de `mundos.js`) sino por `SM.progreso.registrarResultadoMetodoTablas`, que
+  sí alimenta el mismo XP/racha/reto diario/logros/metas de siempre. 2 logros nuevos:
+  "Minuto de oro" (10+ aciertos en un Minuto Loco) y "Cerebro de tablas" (dominar las
+  144 combinaciones).
+- **Cuenta regresiva de examen** (`estado.examenTablas`, `{fecha, nota}` o `null`):
+  banner motivador en el hub. Default `{fecha:'2026-09-21', nota:'Sustentación de
+  recuperación de matemáticas'}` — igual que `modoSoloTablas`, este default SÍ se
+  fuerza de inmediato sobre la partida YA GUARDADA de Santi (ver el comentario en
+  `cargar()`, distingue "nunca existió" de "un adulto ya la quitó" con
+  `!== undefined`, no con `typeof`, porque el valor es un objeto/null). Editable o
+  eliminable en Ajustes ("📅 Examen o sustentación de tablas") — un adulto la debe
+  actualizar a mano para la próxima fecha importante cuando esta ya haya pasado.
+- **Plan de 5 días** (`estado.planTablas`, 5 booleanos): checklist manual en el hub,
+  sin ninguna lógica de desbloqueo — Santi o el adulto marcan cada día a mano.
+- Entrada al módulo: botón "🧠 Centro de entrenamiento de tablas" dentro de
+  `pantallaMundo` (solo si `mundoId==='tablix'`), y un atajo directo en
+  `pantallaInicio` cuando `estado.modoSoloTablas` está activo (que es el caso ahora)
+  para no obligar a pasar primero por Tablix.
+- Si se agrega una 4ª herramienta al Centro de Tablas, seguir el mismo patrón: la
+  lógica pura en `tablas.js` con la forma de sesión ya descrita, y pintarla con
+  `pantallaSesionTablas` en vez de escribir una pantalla nueva desde cero.
 
 ## Metas y premios reales (`progreso.metas`, gestionado en Ajustes)
 Sistema de metas de XP con premios de la vida real (lo que el adulto decida) —

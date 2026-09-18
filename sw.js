@@ -2,11 +2,11 @@
    Estrategia: si hay internet, siempre trae la versión más nueva (y la guarda en caché
    de paso); si no hay internet, sirve la última copia guardada. El progreso vive en
    localStorage (js/progreso.js), no aquí — este cache solo cubre el código de la app. */
-const CACHE_NAME = 'super-santi-v15';
+const CACHE_NAME = 'super-santi-v16';
 const ASSETS = [
   './', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './js/progreso.js', './js/mundos.js', './js/mascota.js', './js/sonido.js',
-  './js/generadores.js', './js/lecciones.js', './js/juego.js', './js/arcade.js',
+  './js/generadores.js', './js/lecciones.js', './js/tablas.js', './js/juego.js', './js/arcade.js',
   './js/ui.js', './js/app.js'
 ];
 
