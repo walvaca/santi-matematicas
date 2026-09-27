@@ -159,11 +159,12 @@
     </button>` : '';
 
     const cumplidoHoy = estado.retoDiario.cumplidoHoy;
-    const retoHTML = widgetRachaHTML(estado);
+    const hayRescate = SM.progreso.rescateDisponible(estado);
+    const retoHTML = hayRescate ? rescateCardHTML(estado) : widgetRachaHTML(estado);
 
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-inicio">
       <header class="sm-inicio-header">
-        ${SM.mascota.svg(cumplidoHoy ? 'celebrando' : 'animando', 'sm-mascota-media')}
+        ${SM.mascota.svg(hayRescate ? 'consolando' : (cumplidoHoy ? 'celebrando' : 'animando'), 'sm-mascota-media')}
         <div><h1>${saludo}</h1><p class="sm-muted">Elige un planeta y sigue tu misión matemática</p></div>
       </header>
       <div class="sm-stats-fila">
@@ -184,7 +185,10 @@
     if (btnMeta) btnMeta.addEventListener('click', () => { SM.sonido.click(); ir('premios'); });
     const btnCentroTablas = root.querySelector('[data-accion="centro-tablas"]');
     if (btnCentroTablas) btnCentroTablas.addEventListener('click', () => { SM.sonido.click(); ir('centro-tablas'); });
-    root.querySelector('[data-accion="racha"]').addEventListener('click', () => { SM.sonido.click(); ir('logros'); });
+    const btnRacha = root.querySelector('[data-accion="racha"]');
+    if (btnRacha) btnRacha.addEventListener('click', () => { SM.sonido.click(); ir('logros'); });
+    const btnRescate = root.querySelector('[data-accion="rescate"]');
+    if (btnRescate) btnRescate.addEventListener('click', () => { SM.sonido.click(); ir('rescate-racha'); });
     arrancarCuentaRegresivaRacha(root, caja, ir);
     cablearNavbar(root, ir);
   }
@@ -237,7 +241,8 @@
 
     const semana = SM.progreso.semanaRacha(estado).map((d) => {
       const clase = [d.cumplido ? 'hecho' : '', d.esHoy ? 'hoy' : '', d.futuro ? 'futuro' : ''].join(' ');
-      return `<div class="sm-rw-dia ${clase}"><span>${d.letra}</span><i>${d.cumplido ? '✓' : ''}</i></div>`;
+      const clase2 = !d.cumplido && d.rescatado ? 'rescatado' : '';
+      return `<div class="sm-rw-dia ${clase} ${clase2}"><span>${d.letra}</span><i>${d.cumplido ? '✓' : (d.rescatado ? '🛟' : '')}</i></div>`;
     }).join('');
 
     let titulo;
@@ -274,6 +279,176 @@
         ${hitoHTML}
       </div>
     </button>`;
+  }
+
+  // Tarjeta que reemplaza al widget SOLO el día en que se perdió la racha y todavía no
+  // se ha usado el rescate (ver SM.progreso.rescateDisponible).
+  function rescateCardHTML(estado) {
+    const r = estado.rescateRacha;
+    const n = r.diasPerdidos;
+    return `<button class="sm-racha-widget sm-rescate-card" data-accion="rescate">
+      <div class="sm-rw-top">
+        <div class="sm-rw-llama sm-rw-llama-rota">${llamaSVG()}<span class="sm-rw-num">${n}</span></div>
+        <div class="sm-rw-texto">
+          <b>💔 ¡Se apagó tu racha de ${n} día${n === 1 ? '' : 's'}!</b>
+          <small>Tienes <b>UNA</b> oportunidad, solo hoy, para rescatarla: ${SM.progreso.RESCATE_PREGUNTAS} tablas y puedes fallar máximo ${SM.progreso.RESCATE_ERRORES_MAX}.</small>
+        </div>
+      </div>
+      <span class="btn sm-rescate-btn">🛟 Rescatar mi racha</span>
+      <div class="sm-rw-pie"><small class="sm-rw-cuenta">⏳ El rescate se acaba en <b id="sm-rw-tiempo">${textoTiempoRestante().texto}</b></small></div>
+    </button>`;
+  }
+
+  // ==================== RESCATE DE RACHA (juego) ====================
+  // 10 tablas del 2 al 9 escritas con teclado (sin opciones, para que cuente de verdad).
+  // 3 vidas: al tercer error termina y la racha no se recupera. Sin XP (no es para farmear).
+  function pantallaRescateRacha(root, caja, ir) {
+    detenerIntervalo();
+    const estado = caja.estado;
+    if (!SM.progreso.rescateDisponible(estado)) { ir('inicio'); return; }
+    const TOTAL = SM.progreso.RESCATE_PREGUNTAS;
+    const MAX_ERR = SM.progreso.RESCATE_ERRORES_MAX;
+    const n = estado.rescateRacha.diasPerdidos;
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
+      ${SM.mascota.svg('animando', 'sm-mascota-media')}
+      <h1>🛟 Rescate de racha</h1>
+      <p>Tu racha de <b>${n} día${n === 1 ? '' : 's'}</b> se apagó. ¡Todavía podemos salvarla!</p>
+      <div class="sm-rescate-reglas">
+        <p>✖️ <b>${TOTAL} tablas</b> — escribes el resultado.</p>
+        <p>❤️❤️❤️ Puedes fallar <b>máximo ${MAX_ERR}</b>. Al tercer error se acaba.</p>
+        <p>☝️ <b>Un solo intento.</b> Si sales a la mitad, se pierde.</p>
+      </div>
+      <div class="sm-resultado-botones">
+        <button class="btn" data-accion="empezar">🚀 ¡Empezar el rescate!</button>
+        <button class="btn btn-sec" data-accion="volver">Ahora no</button>
+      </div>
+    </div>`;
+    root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('inicio'); });
+    root.querySelector('[data-accion="empezar"]').addEventListener('click', () => {
+      if (!SM.progreso.iniciarRescate(caja.estado)) { ir('inicio'); return; }
+      SM.sonido.inicioNivel();
+      jugar();
+    });
+
+    function jugar() {
+      let indice = 0;
+      let errores = 0;
+      let buffer = '';
+      let respondiendo = false;
+      let pregunta = null;
+      let terminado = false;
+
+      root.innerHTML = `<div class="sm-pantalla sm-pantalla-juego">
+        <header class="sm-barra-superior">
+          <button class="sm-btn-icono" data-accion="salir">✕</button>
+          <div class="sm-progreso-zona" id="sm-progreso-zona"></div>
+          <div class="sm-vidas-chip" id="sm-vidas-chip"></div>
+        </header>
+        <div id="sm-pregunta-zona"></div>
+      </div>`;
+      root.querySelector('[data-accion="salir"]').addEventListener('click', () => {
+        confirmar('Si sales ahora, pierdes el rescate y la racha queda en 0. ¿Seguro?', 'Salir', () => { errores = MAX_ERR + 1; finalizar(); });
+      });
+
+      function renderProgreso() {
+        const pct = Math.round((indice / TOTAL) * 100);
+        document.getElementById('sm-progreso-zona').innerHTML = `<div class="sm-progreso-texto">Rescate ${Math.min(indice + 1, TOTAL)}/${TOTAL}</div>
+          <div class="sm-progreso-barra"><span style="width:${pct}%"></span></div>`;
+        const vidas = MAX_ERR + 1 - errores;
+        document.getElementById('sm-vidas-chip').innerHTML = '❤️'.repeat(Math.max(0, vidas)) + '🖤'.repeat(Math.min(MAX_ERR + 1, errores));
+      }
+
+      function renderPregunta() {
+        respondiendo = false;
+        buffer = '';
+        pregunta = SM.generadores.generar('tablas', { rango: [2, 3, 4, 5, 6, 7, 8, 9] });
+        document.getElementById('sm-pregunta-zona').innerHTML = `
+          ${SM.mascota.svg('feliz', 'sm-mascota-media sm-mascota-chica')}
+          <div class="sm-pregunta-card"><p class="sm-pregunta-texto">${esc(pregunta.enunciado)}</p></div>
+          <div class="sm-numero-zona">
+            <div class="sm-numero-display" id="sm-numero-display">&nbsp;</div>
+            <div class="sm-teclado">
+              ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="sm-tecla" data-tecla="${d}">${d}</button>`).join('')}
+              <button class="sm-tecla" data-tecla="borrar">⌫</button>
+              <button class="sm-tecla" data-tecla="0">0</button>
+              <button class="sm-tecla sm-tecla-ok" data-tecla="ok">✓</button>
+            </div>
+          </div>
+          <div id="sm-feedback-zona"></div>`;
+        root.querySelectorAll('.sm-tecla').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            if (respondiendo) return;
+            const t = btn.dataset.tecla;
+            if (t === 'borrar') buffer = buffer.slice(0, -1);
+            else if (t === 'ok') { if (buffer !== '') responder(buffer); return; }
+            else if (buffer.length < 4) buffer += t;
+            document.getElementById('sm-numero-display').textContent = buffer || ' ';
+          });
+        });
+        renderProgreso();
+      }
+
+      function responder(valor) {
+        respondiendo = true;
+        const correcta = String(Number(valor)) === String(pregunta.respuesta);
+        if (!correcta) errores += 1;
+        SM.sonido[correcta ? 'acierto' : 'error']();
+        indice += 1;
+        root.querySelectorAll('.sm-tecla').forEach((b) => { b.disabled = true; });
+        renderProgreso();
+        const seAcabo = errores > MAX_ERR || indice >= TOTAL;
+        const quedan = MAX_ERR - errores;
+        const mensaje = correcta
+          ? SM.mascota.frase('acierto', { nombre: esc(caja.estado.nombre) })
+          : (errores > MAX_ERR ? '¡Uy! Ese fue el tercer error.' : `Era ${pregunta.respuesta}. ${quedan === 0 ? '¡Ya no puedes fallar más!' : `Te queda ${quedan} error permitido.`}`);
+        document.getElementById('sm-feedback-zona').innerHTML = `
+          <div class="sm-feedback-panel ${correcta ? 'correcta' : 'incorrecta'}">
+            <p>${esc(mensaje)}</p>
+            ${!correcta ? `<p class="sm-explicacion">${esc(pregunta.explicacion)}</p>` : ''}
+            <button class="btn" data-accion="continuar">${seAcabo ? 'Ver resultado 🛟' : 'Siguiente →'}</button>
+          </div>`;
+        document.querySelector('#sm-feedback-zona [data-accion="continuar"]').addEventListener('click', () => {
+          SM.sonido.click();
+          if (seAcabo) finalizar(); else renderPregunta();
+        });
+      }
+
+      function finalizar() {
+        if (terminado) return;
+        terminado = true;
+        const r = SM.progreso.terminarRescate(caja.estado, errores);
+        const aciertos = Math.max(0, indice - Math.min(errores, indice));
+        root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
+          <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
+          ${SM.mascota.svg(r.exito ? 'celebrando' : 'consolando', 'sm-mascota-media')}
+          <h1>${r.exito ? '🔥 ¡Racha rescatada!' : '💔 Esta vez no se pudo'}</h1>
+          ${r.exito
+            ? `<p>¡Lo lograste, ${esc(caja.estado.nombre)}! Tu racha vuelve a <b>${r.dias} día${r.dias === 1 ? '' : 's'}</b>. Ahora cumple el reto de hoy para que siga creciendo.</p>`
+            : `<p>Tu racha empieza de nuevo desde 0. ¡Pero hoy mismo puedes encender una nueva ganando ${caja.estado.metaDiariaXP} XP! Cosmo cree en ti.</p>`}
+          <div class="sm-stats-fila sm-centrado">
+            <div class="sm-stat-chip">✅ ${aciertos}/${indice}</div>
+            <div class="sm-stat-chip">❌ ${Math.min(errores, indice)} error${Math.min(errores, indice) === 1 ? '' : 'es'}</div>
+          </div>
+          ${r.logrosNuevos.length ? `<div class="sm-logros-nuevos">${r.logrosNuevos.map((l) => `
+            <div class="sm-logro-chip">${l.icono} <b>${esc(l.nombre)}</b><br><small>${esc(l.descripcion)}</small></div>`).join('')}</div>` : ''}
+          ${r.metasNuevas.length ? `<div class="sm-logros-nuevos">${r.metasNuevas.map((m) => `
+            <div class="sm-logro-chip sm-meta-chip">${m.emoji} ¡Meta alcanzada! <b>${esc(m.nombre)}</b><br><small>Pídesela a papá o mamá 🎉</small></div>`).join('')}</div>` : ''}
+          <div class="sm-resultado-botones">
+            <button class="btn" data-accion="inicio">🚀 Ir al inicio</button>
+          </div>
+        </div>`;
+        root.querySelector('[data-accion="inicio"]').addEventListener('click', () => { SM.sonido.click(); ir('inicio'); });
+        if (r.exito) {
+          lanzarConfeti(document.getElementById('sm-confeti-zona'));
+          setTimeout(() => SM.sonido.rachaSubida(), 250);
+        } else {
+          SM.sonido.derrota();
+        }
+      }
+
+      renderPregunta();
+    }
   }
 
   // Refresca la cuenta regresiva cada 30 s. Si la app sigue abierta al pasar la
@@ -1915,6 +2090,6 @@
     pantallaCentroTablas, pantallaElegirTablaEntreno, pantallaMinutoLoco, pantallaConteoTablas, pantallaFlashcardsTablas,
     pantallaArcade, pantallaDificultadArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
     pantallaAgujeros, pantallaAsteroides,
-    pantallaPremios, pantallaLogros, pantallaAjustes,
+    pantallaPremios, pantallaLogros, pantallaAjustes, pantallaRescateRacha,
   };
 })();

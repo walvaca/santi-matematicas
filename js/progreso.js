@@ -225,6 +225,9 @@
       desafio: { erroresPermitidos: null, segundosPorPregunta: null }, // modo agilidad opcional
       metaDiariaXP: 100,           // XP que hay que ganar HOY para que cuente como día cumplido
       retoDiario: { fecha: null, xpHoy: 0, cumplidoHoy: false },
+      // Rescate de racha (ver `actualizarProgresoDiario` / `terminarRescate`): solo existe
+      // el día en que se perdió una racha > 0. estado: disponible | en-curso | logrado | fallido.
+      rescateRacha: null,
       // Modo enfoque: solo tablas — pedido explícito del usuario (Santi casi pierde
       // el año por no dominar las tablas, y se dispersaba entre 8 planetas y 5
       // juegos). En true, todos los planetas menos Tablix quedan bloqueados y el
@@ -337,6 +340,7 @@
         desafio: Object.assign({ erroresPermitidos: null, segundosPorPregunta: null }, guardado.desafio),
         metaDiariaXP: guardado.metaDiariaXP || 100,
         retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
+        rescateRacha: guardado.rescateRacha || null,
         // A propósito default `true` incluso para bóvedas guardadas ANTES de que
         // existiera este campo (`typeof ... === 'boolean'` es la única forma de
         // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
@@ -378,8 +382,13 @@
     if (estado.retoDiario.fecha === hoy) return estado;
     const esPrimeraVez = !estado.retoDiario.fecha;
     const fueAyer = estado.retoDiario.fecha === fechaISO(-1);
+    const diasAntes = estado.racha.dias;
+    estado.rescateRacha = null; // un rescate solo vale el día en que se perdió la racha
     if (!esPrimeraVez && (!estado.retoDiario.cumplidoHoy || !fueAyer)) {
       estado.racha.dias = 0;
+      if (diasAntes > 0) {
+        estado.rescateRacha = { fecha: hoy, diasPerdidos: diasAntes, diaPerdido: fechaISO(-1), estado: 'disponible' };
+      }
     }
     estado.racha.ultimaFecha = hoy;
     estado.retoDiario = { fecha: hoy, xpHoy: 0, cumplidoHoy: false };
@@ -609,6 +618,49 @@
     return estado;
   }
 
+  // ===== Rescate de racha =====
+  // Pedido explícito del usuario (2026-09-26): un juego de recuperación que SOLO aparece
+  // cuando Santi pierde la racha. 10 operaciones de tablas; con 0, 1 o 2 errores la
+  // recupera, con 3 o más no. Un solo intento y solo ese día: al empezar queda
+  // 'en-curso', así que cerrar la app a mitad de juego cuenta como intento gastado.
+  const RESCATE_PREGUNTAS = 10;
+  const RESCATE_ERRORES_MAX = 2;
+
+  function rescateDisponible(estado) {
+    const r = estado.rescateRacha;
+    return !!(r && r.fecha === hoyISO() && r.estado === 'disponible');
+  }
+
+  function iniciarRescate(estado) {
+    if (!rescateDisponible(estado)) return false;
+    estado.rescateRacha.estado = 'en-curso';
+    guardar(estado);
+    return true;
+  }
+
+  function terminarRescate(estado, errores) {
+    const r = estado.rescateRacha;
+    if (!r || r.estado !== 'en-curso') return { exito: false, dias: estado.racha.dias, logrosNuevos: [], metasNuevas: [] };
+    const exito = errores <= RESCATE_ERRORES_MAX;
+    r.estado = exito ? 'logrado' : 'fallido';
+    const logrosNuevos = [];
+    let metasNuevas = [];
+    if (exito) {
+      // Si hoy ya había cumplido el reto (racha 0 → 1), ese día se suma encima.
+      estado.racha.dias = r.diasPerdidos + (estado.retoDiario.cumplidoHoy ? 1 : 0);
+      estado.racha.rescatados = (estado.racha.rescatados || []).concat(r.diaPerdido).slice(-30);
+      LOGROS.forEach((l) => {
+        if (!estado.logros.includes(l.id) && l.condicion(estado)) {
+          estado.logros.push(l.id);
+          logrosNuevos.push(l);
+        }
+      });
+      metasNuevas = revisarMetasAlcanzadas(estado);
+    }
+    guardar(estado);
+    return { exito, dias: estado.racha.dias, diasPerdidos: r.diasPerdidos, logrosNuevos, metasNuevas };
+  }
+
   // Los 7 días de la semana actual (lunes a domingo) para el widget de racha:
   // cada uno con su letra y si está cumplido / es hoy / es futuro.
   function semanaRacha(estado) {
@@ -621,7 +673,8 @@
       const d = new Date(lunes);
       d.setDate(lunes.getDate() + i);
       const iso = isoDe(d);
-      return { letra, iso, cumplido: estado.racha.historial.includes(iso), esHoy: iso === hoyStr, futuro: iso > hoyStr };
+      const rescatado = (estado.racha.rescatados || []).includes(iso);
+      return { letra, iso, cumplido: estado.racha.historial.includes(iso), rescatado, esHoy: iso === hoyStr, futuro: iso > hoyStr };
     });
   }
 
@@ -630,6 +683,7 @@
   // borran solos en esta app.
   function reiniciarRacha(estado) {
     estado.racha = { dias: 0, ultimaFecha: null, historial: [] };
+    estado.rescateRacha = null;
     estado.retoDiario = { fecha: null, xpHoy: 0, cumplidoHoy: false };
     guardar(estado);
     return estado;
@@ -642,6 +696,7 @@
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
     actualizarModoSoloTablas, reiniciarRacha, semanaRacha, hoyISO,
+    rescateDisponible, iniciarRescate, terminarRescate, RESCATE_PREGUNTAS, RESCATE_ERRORES_MAX,
     statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,
     actualizarExamenTablas, togglePlanTablas,
   };

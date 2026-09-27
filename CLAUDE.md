@@ -568,6 +568,16 @@ hoy está cumplido, `animando` si no.
 - Cambio de día con la app abierta: el intervalo del widget (cada 30 s, limpiado en
   `detenerIntervalo`) y un `visibilitychange` en `app.js` llaman a
   `actualizarProgresoDiario` y repintan Inicio.
+- **Rescate de racha** (pedido explícito, 2026-09-26): SOLO aparece el día en que se
+  pierde una racha > 0 (`actualizarProgresoDiario` crea `estado.rescateRacha`
+  {fecha, diasPerdidos, diaPerdido, estado}). En Inicio reemplaza al widget por una
+  tarjeta roja → pantalla `rescate-racha` (`pantallaRescateRacha`). Reglas acordadas
+  con el usuario: 10 tablas del 2 al 9 escritas con teclado; 0, 1 o 2 errores =
+  recupera (`racha.dias = diasPerdidos` + 1 si hoy ya cumplió el reto); al 3er error
+  termina y no recupera. UN intento y solo ese día: al pulsar "Empezar" queda
+  `en-curso`, así que salir o cerrar la app a mitad cuenta como perdido. No da XP. El
+  día rescatado se marca con 🛟 en la semana (`racha.rescatados`). Constantes
+  `RESCATE_PREGUNTAS` / `RESCATE_ERRORES_MAX` en `progreso.js`.
 - Pendiente posible (no hecho): widget real de Android vía app nativa/TWA, o insignia
   en el ícono con la Badging API.
 

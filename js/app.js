@@ -27,6 +27,7 @@
       case 'escalera': SM.ui.pantallaEscalera(root, caja, ir, datos.dificultad); break;
       case 'agujeros': SM.ui.pantallaAgujeros(root, caja, ir, datos.dificultad); break;
       case 'asteroides': SM.ui.pantallaAsteroides(root, caja, ir, datos.dificultad); break;
+      case 'rescate-racha': SM.ui.pantallaRescateRacha(root, caja, ir); break;
       case 'premios': SM.ui.pantallaPremios(root, caja, ir); break;
       case 'logros': SM.ui.pantallaLogros(root, caja, ir); break;
       case 'ajustes': SM.ui.pantallaAjustes(root, caja, ir); break;

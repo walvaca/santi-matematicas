@@ -227,6 +227,15 @@ p{line-height:1.5}
 .sm-rw-cuenta b{color:var(--accent2)}
 .sm-racha-widget.peligro .sm-rw-cuenta b{color:var(--red)}
 .sm-rw-hito b{color:var(--yellow)}
+.sm-rw-dia.rescatado i{background:rgba(79,209,255,.15);border-color:var(--accent);font-size:14px}
+.sm-rescate-card{border-color:var(--red);animation:sm-rw-pulso 1.6s ease-in-out infinite}
+.sm-rescate-card .sm-rw-texto b{color:var(--text)}
+.sm-rescate-card .sm-rw-texto small b{color:var(--red)}
+.sm-rw-llama-rota .sm-rw-llama-svg{opacity:.55;transform:rotate(-8deg)}
+.sm-rescate-btn{display:block;text-align:center;margin:4px 0 10px;background:var(--red);color:#fff}
+.sm-rescate-card .sm-rw-cuenta b{color:var(--red)}
+.sm-rescate-reglas{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left;display:flex;flex-direction:column;gap:6px}
+@media (prefers-reduced-motion:reduce){.sm-rescate-card{animation:none}}
 @media (prefers-reduced-motion:reduce){.sm-racha-widget.peligro,.sm-rw-llama.encendida .sm-rw-llama-svg{animation:none}}
 .sm-reto-diario{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--accent2);border-radius:12px;padding:10px 12px;margin-bottom:14px}
 .sm-reto-diario.cumplido{border-color:var(--green)}
