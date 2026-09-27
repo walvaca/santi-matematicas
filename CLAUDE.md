@@ -629,6 +629,20 @@ vez que se intenta reiniciar. Se guarda hash djb2 en `estado.pinPapa`; al reinic
 conserva (`reiniciarConservandoPin`). 3 fallos = bloqueo 5 min (en memoria). Sin
 recuperación: si se olvida, solo borrando los datos del sitio en el navegador.
 
+## Música por pantalla + bug de música con la app cerrada (2026-09-26)
+- `js/sonido.js` ahora tiene un mini secuenciador (lookahead 60 ms / 0,25 s) con 13
+  temas en `TEMAS_MUSICA`: `menu`, `estudio` (mundo/lección/niveles), `tablas` (Centro
+  de Tablas), `rescate`, y uno por cada juego de arcade con el MISMO id del juego
+  (`invasores`, `memoria`, `escalera`, `agujeros`, `asteroides`, `serpiente`,
+  `globos`, `tunel`, `carrera`). Cada tema = melodía (16 corcheas), bajo (8 negras) y
+  batería sintetizada (k/s/h). `app.js → ir()` llama `SM.sonido.musica.tema(...)`
+  (`TEMA_POR_PANTALLA`; si la pantalla es un id de juego usa ese tema). Un juego nuevo
+  de arcade debe traer su tema en `TEMAS_MUSICA` o sonará el de menú.
+- Bug corregido: la música seguía sonando con la app cerrada/minimizada. Ahora
+  `visibilitychange → hidden` y `pagehide` llaman `SM.sonido.pausarTodo()` (detiene el
+  secuenciador, desconecta lo agendado y suspende el AudioContext); al volver
+  (`visible`) se reanuda si la música está activa en Ajustes.
+
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de
   frases para que no se sienta repetitivo ("¡Vamos Santi, tú puedes!", etc.).

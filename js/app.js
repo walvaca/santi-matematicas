@@ -6,9 +6,21 @@
   SM.sonido.setActivo(caja.estado.sonido);
 
   let pantallaActual = 'inicio';
+  // Música según la pantalla: cada juego de arcade tiene su canción; niveles y
+  // lecciones comparten "estudio"; el Centro de Tablas y el rescate tienen la suya.
+  const TEMA_POR_PANTALLA = {
+    mundo: 'estudio', leccion: 'estudio', juego: 'estudio',
+    'centro-tablas': 'tablas', 'elegir-tabla': 'tablas', 'minuto-loco': 'tablas', 'conteo-tablas': 'tablas', 'flashcards-tablas': 'tablas',
+    'rescate-racha': 'rescate',
+  };
+  function temaDePantalla(pantalla) {
+    if (SM.sonido.musica.TEMAS.includes(pantalla)) return pantalla; // juegos de arcade
+    return TEMA_POR_PANTALLA[pantalla] || 'menu';
+  }
   function ir(pantalla, datos) {
     datos = datos || {};
     pantallaActual = pantalla || 'inicio';
+    SM.sonido.musica.tema(temaDePantalla(pantallaActual));
     const root = document.getElementById('app');
     window.scrollTo(0, 0);
     switch (pantalla) {
@@ -53,11 +65,14 @@
     // si cambió la fecha, se cierra el día (regla de racha de siempre) y, si estaba en
     // Inicio, se repinta para que el widget de racha muestre el día nuevo.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'visible') return;
+      // Bug reportado: con la app cerrada/minimizada la música seguía sonando.
+      if (document.visibilityState === 'hidden') { SM.sonido.pausarTodo(); return; }
+      if (caja.estado.musica) SM.sonido.musica.iniciar();
       if (caja.estado.retoDiario.fecha === SM.progreso.hoyISO()) return;
       caja.estado = SM.progreso.actualizarProgresoDiario(caja.estado);
       if (pantallaActual === 'inicio') ir('inicio');
     });
+    window.addEventListener('pagehide', () => SM.sonido.pausarTodo());
     document.addEventListener('click', iniciarMusicaSiCorresponde, { once: true });
     document.addEventListener('touchstart', iniciarMusicaSiCorresponde, { once: true });
   });

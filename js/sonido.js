@@ -114,61 +114,185 @@
   }
 
   // ---- música de fondo ----
+  // Pedido explícito del usuario (2026-09-26): "cada juego una música diferente".
+  // Mini secuenciador sin archivos de audio: cada tema tiene melodía, bajo y batería
+  // sintetizados, y se programa con "lookahead" (cada 60 ms se agenda lo que suena en
+  // los próximos 0,25 s). `SM.sonido.musica.tema(id)` cambia de canción; app.js elige
+  // el tema según la pantalla. Además, al salir de la app (pantalla oculta / pagehide)
+  // se llama `pausarTodo()`: corta la música y suspende el AudioContext — antes la
+  // música seguía sonando con el juego cerrado (bug reportado por el usuario).
+  //
+  // Formato: `mel` = 16 notas de corchea ("A4", "_" silencio, "-" alarga la anterior);
+  // `bajo` = 8 negras; `bat` = 16 semicorcheas por compás (k bombo, s caja, h platillo).
+  const TEMAS_MUSICA = {
+    menu:      { bpm: 96,  onda: 'triangle', vol: 0.9, mel: 'A4 C5 E5 G5 E5 C5 A4 C5 D5 E5 A5 E5 D5 C5 A4 -', bajo: 'A2 A2 F2 F2 C3 C3 G2 G2', bat: '' },
+    estudio:   { bpm: 76,  onda: 'sine',     vol: 0.9, mel: 'C5 E5 G5 E5 D5 F5 A5 F5 E5 G5 C6 G5 D5 G5 B5 -', bajo: 'C3 C3 F2 F2 C3 C3 G2 G2', bat: '' },
+    tablas:    { bpm: 108, onda: 'triangle', vol: 0.8, mel: 'G4 C5 E5 C5 G4 C5 E5 - A4 D5 F5 D5 B4 D5 G5 -', bajo: 'C3 C3 C3 C3 F2 F2 G2 G2', bat: 'k...h...s...h...' },
+    rescate:   { bpm: 126, onda: 'square',   vol: 0.4, mel: 'A4 _ A4 C5 E5 D5 C5 B4 A4 _ A4 C5 F5 E5 D5 G#4', bajo: 'A2 A2 A2 A2 F2 F2 E2 E2', bat: 'k.h.k.h.s.h.k.h.' },
+    invasores: { bpm: 140, onda: 'square',   vol: 0.4, mel: 'E5 _ E5 G5 B5 A5 G5 E5 D5 _ D5 F#5 A5 G5 F#5 D5', bajo: 'E2 E2 E2 E2 D2 D2 D2 D2', bat: 'k.h.s.h.k.h.s.hh' },
+    memoria:   { bpm: 90,  onda: 'sine',     vol: 0.9, mel: 'D5 F5 A5 C6 B5 A5 F5 - E5 G5 B5 D6 C6 B5 G5 -', bajo: 'D3 D3 D3 D3 E3 E3 E3 E3', bat: 'h...h...h...h...' },
+    escalera:  { bpm: 116, onda: 'triangle', vol: 0.8, mel: 'C5 D5 E5 F5 G5 A5 B5 C6 B5 A5 G5 F5 E5 D5 C5 -', bajo: 'C3 G2 A2 E2 F2 C3 F2 G2', bat: 'k...h.h.s...h.h.' },
+    agujeros:  { bpm: 100, onda: 'sawtooth', vol: 0.35, mel: 'F#4 _ A4 _ C#5 _ B4 A4 F#4 _ E4 _ G#4 A4 F#4 -', bajo: 'F#2 F#2 F#2 F#2 D2 D2 C#2 C#2', bat: 'k..hk..hs..hk.hh' },
+    asteroides:{ bpm: 132, onda: 'square',   vol: 0.4, mel: 'A4 A4 C5 A4 D5 A4 E5 D5 C5 C5 E5 C5 G5 E5 D5 C5', bajo: 'A2 A2 A2 A2 F2 F2 G2 G2', bat: 'k.h.s.h.k.k.s.h.' },
+    serpiente: { bpm: 118, onda: 'triangle', vol: 0.8, mel: 'E5 F5 G#5 A5 G#5 F5 E5 - B4 C5 D5 E5 D5 C5 B4 -', bajo: 'E2 E2 E2 E2 E2 E2 D2 D2', bat: 'k..sk..sk..sk.ss' },
+    globos:    { bpm: 128, onda: 'triangle', vol: 0.8, staccato: true, mel: 'F5 _ A5 _ C6 _ A5 F5 G5 _ A#5 _ G5 E5 F5 -', bajo: 'F2 C3 F2 C3 C3 G2 F2 C3', bat: 'k.h.s.h.k.h.s.h.' },
+    tunel:     { bpm: 150, onda: 'sawtooth', vol: 0.3, mel: 'D5 F5 A5 D6 C6 A5 F5 A5 A#4 D5 F5 A#5 A5 F5 C5 E5', bajo: 'D2 D2 D2 D2 A#1 A#1 C2 C2', bat: 'k.hhs.hhk.hhs.hh' },
+    carrera:   { bpm: 164, onda: 'square',   vol: 0.4, mel: 'G5 G5 D5 G5 B5 A5 G5 F#5 E5 E5 C5 E5 G5 F#5 E5 D5', bajo: 'G2 D3 G2 D3 C3 G2 D3 D3', bat: 'k.s.k.s.k.s.kks.' },
+  };
+  const SEMITONOS = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+  function frecuencia(nombre) {
+    const m = /^([A-G]#?)(\d)$/.exec(nombre);
+    if (!m) return null;
+    const midi = 12 * (Number(m[2]) + 1) + SEMITONOS[m[1]];
+    return 440 * Math.pow(2, (midi - 69) / 12);
+  }
+  // Convierte "A4 C5 - _" en una lista de semicorcheas: {freq, pasos} al empezar cada
+  // nota, null en los pasos que continúan o son silencio.
+  function parsearPista(texto, pasosPorNota) {
+    const pasos = [];
+    let ultima = null;
+    texto.trim().split(/\s+/).forEach((tok) => {
+      if (tok === '-' && ultima) {
+        ultima.pasos += pasosPorNota;
+        for (let i = 0; i < pasosPorNota; i++) pasos.push(null);
+        return;
+      }
+      const nota = tok === '_' ? null : { freq: frecuencia(tok), pasos: pasosPorNota };
+      ultima = nota;
+      pasos.push(nota);
+      for (let i = 1; i < pasosPorNota; i++) pasos.push(null);
+    });
+    return pasos;
+  }
+  const temasListos = {};
+  function temaListo(id) {
+    if (!temasListos[id]) {
+      const t = TEMAS_MUSICA[id] || TEMAS_MUSICA.menu;
+      temasListos[id] = Object.assign({}, t, { melPasos: parsearPista(t.mel, 2), bajoPasos: parsearPista(t.bajo, 4) });
+    }
+    return temasListos[id];
+  }
+
   let musicaActiva = false;
   let musicaGain = null;
-  let musicaTimeoutId = null;
-  let musicaIndicePatron = 0;
+  let musicaTimer = null;
+  let temaActualId = 'menu';
+  let pasoMusica = 0;
+  let proximoTiempo = 0;
+  let bufferRuido = null;
 
-  // Dos frases cortas de 8 notas (escala pentatónica menor "espacial") que se
-  // alternan para que el loop no se sienta tan repetitivo.
-  const PATRONES_MUSICA = [
-    [[440, 0.3], [523.25, 0.3], [659.25, 0.3], [783.99, 0.3], [659.25, 0.3], [523.25, 0.3], [440, 0.3], [523.25, 0.3]],
-    [[587.33, 0.3], [659.25, 0.3], [880, 0.3], [659.25, 0.3], [587.33, 0.3], [440, 0.3], [523.25, 0.3], [440, 0.6]],
-  ];
-
-  function reproducirCicloMusica() {
+  function ruido(c) {
+    if (!bufferRuido) {
+      bufferRuido = c.createBuffer(1, c.sampleRate * 0.3, c.sampleRate);
+      const d = bufferRuido.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    return bufferRuido;
+  }
+  function notaMusica(c, freq, t, dur, onda, vol) {
+    const osc = c.createOscillator();
+    osc.type = onda;
+    osc.frequency.value = freq;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.015);
+    g.gain.setValueAtTime(vol, t + Math.max(0.02, dur - 0.04));
+    g.gain.linearRampToValueAtTime(0, t + dur);
+    osc.connect(g).connect(musicaGain);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+  function golpe(c, tipo, t) {
+    if (tipo === 'k') {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.frequency.setValueAtTime(130, t);
+      osc.frequency.exponentialRampToValueAtTime(40, t + 0.12);
+      g.gain.setValueAtTime(1.2, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+      osc.connect(g).connect(musicaGain);
+      osc.start(t); osc.stop(t + 0.16);
+      return;
+    }
+    const src = c.createBufferSource();
+    src.buffer = ruido(c);
+    const filtro = c.createBiquadFilter();
+    filtro.type = tipo === 'h' ? 'highpass' : 'bandpass';
+    filtro.frequency.value = tipo === 'h' ? 7000 : 1800;
+    const g = c.createGain();
+    const dur = tipo === 'h' ? 0.04 : 0.12;
+    g.gain.setValueAtTime(tipo === 'h' ? 0.25 : 0.55, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(filtro).connect(g).connect(musicaGain);
+    src.start(t); src.stop(t + dur + 0.01);
+  }
+  function tocarPaso(c, t) {
+    const tema = temaListo(temaActualId);
+    const dPaso = 60 / tema.bpm / 4;
+    const mel = tema.melPasos[pasoMusica % tema.melPasos.length];
+    if (mel && mel.freq) notaMusica(c, mel.freq, t, mel.pasos * dPaso * (tema.staccato ? 0.45 : 0.9), tema.onda, tema.vol);
+    const bajo = tema.bajoPasos[pasoMusica % tema.bajoPasos.length];
+    if (bajo && bajo.freq) notaMusica(c, bajo.freq, t, bajo.pasos * dPaso * 0.85, tema.onda === 'sine' ? 'sine' : 'triangle', 0.7);
+    if (tema.bat) {
+      const ch = tema.bat[pasoMusica % tema.bat.length];
+      if (ch === 'k' || ch === 's' || ch === 'h') golpe(c, ch, t);
+    }
+  }
+  function programarMusica() {
     if (!musicaActiva) return;
     const c = contexto();
-    if (!c) return;
+    if (!c || c.state !== 'running') return;
     if (!musicaGain) {
       musicaGain = c.createGain();
-      musicaGain.gain.value = 0.045;
+      musicaGain.gain.value = 0.05;
       musicaGain.connect(c.destination);
     }
-    const patron = PATRONES_MUSICA[musicaIndicePatron % PATRONES_MUSICA.length];
-    musicaIndicePatron++;
-    let t = c.currentTime + 0.05;
-    let duracionTotal = 0;
-    patron.forEach(([freq, dur]) => {
-      const osc = c.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
-      const notaGain = c.createGain();
-      notaGain.gain.setValueAtTime(0, t);
-      notaGain.gain.linearRampToValueAtTime(1, t + 0.02);
-      notaGain.gain.linearRampToValueAtTime(0, t + dur - 0.03);
-      osc.connect(notaGain).connect(musicaGain);
-      osc.start(t);
-      osc.stop(t + dur);
-      t += dur;
-      duracionTotal += dur;
-    });
-    musicaTimeoutId = setTimeout(reproducirCicloMusica, duracionTotal * 1000);
+    if (proximoTiempo < c.currentTime) proximoTiempo = c.currentTime + 0.05;
+    while (proximoTiempo < c.currentTime + 0.25) {
+      tocarPaso(c, proximoTiempo);
+      proximoTiempo += 60 / temaListo(temaActualId).bpm / 4;
+      pasoMusica++;
+    }
+  }
+  // Corta en seco lo que ya estaba agendado (desconectando el volumen general).
+  function silenciarAgendado() {
+    if (musicaGain) {
+      try { musicaGain.disconnect(); } catch (e) { /* ya desconectado */ }
+      musicaGain = null;
+    }
   }
 
   function musicaIniciar() {
     if (musicaActiva) return;
     musicaActiva = true;
-    reproducirCicloMusica();
+    proximoTiempo = 0;
+    const c = contexto();
+    if (c && c.state === 'suspended') c.resume();
+    programarMusica();
+    musicaTimer = setInterval(programarMusica, 60);
   }
   function musicaDetener() {
     musicaActiva = false;
-    if (musicaTimeoutId) { clearTimeout(musicaTimeoutId); musicaTimeoutId = null; }
+    if (musicaTimer) { clearInterval(musicaTimer); musicaTimer = null; }
+    silenciarAgendado();
+  }
+  function musicaTema(id) {
+    const nuevo = TEMAS_MUSICA[id] ? id : 'menu';
+    if (nuevo === temaActualId) return;
+    temaActualId = nuevo;
+    pasoMusica = 0;
+    if (musicaActiva) { silenciarAgendado(); proximoTiempo = 0; programarMusica(); }
   }
   function musicaSetActiva(valor) {
     if (valor) musicaIniciar(); else musicaDetener();
   }
   function musicaEstaActiva() { return musicaActiva; }
+
+  // Al cerrar/ocultar la app: nada debe seguir sonando.
+  function pausarTodo() {
+    musicaDetener();
+    if (ctx && ctx.state === 'running') ctx.suspend();
+  }
 
   function setActivo(valor) { activo = !!valor; }
   function estaActivo() { return activo; }
@@ -178,6 +302,7 @@
     acierto, error, click, nivelCompletado, logro, disparo, explosion,
     inicioNivel, rachaSubida, metaAlcanzada, derrota, hito100,
     setActivo, estaActivo,
-    musica: { iniciar: musicaIniciar, detener: musicaDetener, setActiva: musicaSetActiva, estaActiva: musicaEstaActiva },
+    pausarTodo,
+    musica: { iniciar: musicaIniciar, detener: musicaDetener, setActiva: musicaSetActiva, estaActiva: musicaEstaActiva, tema: musicaTema, TEMAS: Object.keys(TEMAS_MUSICA) },
   };
 })();
