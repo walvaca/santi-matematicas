@@ -27,6 +27,10 @@
       case 'escalera': SM.ui.pantallaEscalera(root, caja, ir, datos.dificultad); break;
       case 'agujeros': SM.ui.pantallaAgujeros(root, caja, ir, datos.dificultad); break;
       case 'asteroides': SM.ui.pantallaAsteroides(root, caja, ir, datos.dificultad); break;
+      case 'serpiente': SM.ui.pantallaSerpiente(root, caja, ir, datos.dificultad); break;
+      case 'globos': SM.ui.pantallaGlobos(root, caja, ir, datos.dificultad); break;
+      case 'tunel': SM.ui.pantallaTunel(root, caja, ir, datos.dificultad); break;
+      case 'carrera': SM.ui.pantallaCarrera(root, caja, ir, datos.dificultad); break;
       case 'rescate-racha': SM.ui.pantallaRescateRacha(root, caja, ir); break;
       case 'premios': SM.ui.pantallaPremios(root, caja, ir); break;
       case 'logros': SM.ui.pantallaLogros(root, caja, ir); break;

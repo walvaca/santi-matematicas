@@ -606,6 +606,29 @@ juego (`estado.hito100Visto`, `SM.progreso.hito100Pendiente`) desde las 3 pantal
 resultados que suman XP y desde el rescate de racha; Inicio es el respaldo. Nuevo logro
 `racha-100` "Leyenda de la racha" y hito 100 en el widget de racha.
 
+## Arcade nuevo: 4 juegos más (pedido explícito del usuario, 2026-09-26)
+Ahora son 9 juegos. Lógica en `js/arcade.js`, dibujo en `js/ui.js`, rutas en `app.js`:
+- 🐍 `serpiente` — tablero 9×11, 3 frutas con números (1 correcta al problema de arriba);
+  comer mala o chocar = −1 vida (al chocar vuelve al centro). Controles: d-pad, deslizar
+  sobre el tablero y flechas del teclado (listener limpiado vía `limpiezaJuego`).
+- 🎈 `globos` — reusa el banco de reglas (texto "¡Revienta …"); globos suben con vaivén;
+  reventar malo = −1 vida; dejar escapar uno correcto solo corta el combo.
+- 🌀 `tunel` — una fila de 3 puertas por problema, efecto de perspectiva; al cruzar se
+  evalúa el carril. Tocar carril / deslizar / flechas.
+- 🏁 `carrera` — meta 12 aciertos; Cosmo tarda `70 / factorVelocidad^0.6` s; error = motor
+  ahogado 1,2 s; ganar da bono por tiempo sobrante. Sin vidas; `porDerrota` = perdió.
+- `crearProblema(factor, soloTablas)` genera problema + distractores (Serpiente/Túnel/
+  Carrera); con modo enfoque solo multiplicaciones. `mostrarResultadoArcade` acepta un
+  título opcional (lo usa la Carrera).
+- OJO cobertura de premios: exige los 9 juegos jugados al menos una vez.
+
+## PIN de papá (pedido explícito del usuario, 2026-09-26)
+Solo protege "Reiniciar todo el progreso" (decisión del usuario; reiniciar planeta,
+nivel o racha siguen libres). Se crea en Ajustes ("🔐 Crear PIN de papá") o la primera
+vez que se intenta reiniciar. Se guarda hash djb2 en `estado.pinPapa`; al reiniciar se
+conserva (`reiniciarConservandoPin`). 3 fallos = bloqueo 5 min (en memoria). Sin
+recuperación: si se olvida, solo borrando los datos del sitio en el navegador.
+
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de
   frases para que no se sienta repetitivo ("¡Vamos Santi, tú puedes!", etc.).

@@ -206,6 +206,10 @@
       escalera: { dificultades: dificultadesJuegoPorDefecto() },
       agujeros: { dificultades: dificultadesJuegoPorDefecto() },
       asteroides: { dificultades: dificultadesJuegoPorDefecto() },
+      serpiente: { dificultades: dificultadesJuegoPorDefecto() },
+      globos: { dificultades: dificultadesJuegoPorDefecto() },
+      tunel: { dificultades: dificultadesJuegoPorDefecto() },
+      carrera: { dificultades: dificultadesJuegoPorDefecto() },
     };
   }
 
@@ -233,7 +237,8 @@
       // el día en que se perdió una racha > 0. estado: disponible | en-curso | logrado | fallido.
       rescateRacha: null,
       planetasAnunciados: [],
-      hito100Visto: false,      // la animación de 100 días de racha ya se mostró   // planetas desbloqueados por XP que ya se celebraron en Inicio
+      hito100Visto: false,
+      pinPapa: null,            // hash del PIN de 4 dígitos que protege "Reiniciar todo el progreso"      // la animación de 100 días de racha ya se mostró   // planetas desbloqueados por XP que ya se celebraron en Inicio
       // Modo enfoque: solo tablas — pedido explícito del usuario (Santi casi pierde
       // el año por no dominar las tablas, y se dispersaba entre 8 planetas y 5
       // juegos). En true, todos los planetas menos Tablix quedan bloqueados y el
@@ -349,6 +354,7 @@
         rescateRacha: guardado.rescateRacha || null,
         planetasAnunciados: guardado.planetasAnunciados || [],
         hito100Visto: !!guardado.hito100Visto,
+        pinPapa: guardado.pinPapa || null,
         // A propósito default `true` incluso para bóvedas guardadas ANTES de que
         // existiera este campo (`typeof ... === 'boolean'` es la única forma de
         // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
@@ -655,6 +661,27 @@
     return estado;
   }
 
+  // ===== PIN de papá (pedido explícito del usuario, 2026-09-26) =====
+  // Solo protege "Reiniciar todo el progreso". Se guarda un hash (no el PIN en claro)
+  // — no es seguridad fuerte, solo evita que se lea a simple vista. Al reiniciar el
+  // progreso el PIN se conserva (`reiniciarConservandoPin`).
+  function hashPin(pin) {
+    let h = 5381;
+    const txt = `super-santi:${pin}`;
+    for (let i = 0; i < txt.length; i++) h = ((h << 5) + h + txt.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+  function tienePin(estado) { return !!estado.pinPapa; }
+  function verificarPin(estado, pin) { return !!estado.pinPapa && estado.pinPapa === hashPin(pin); }
+  function establecerPin(estado, pin) { estado.pinPapa = hashPin(pin); guardar(estado); }
+  function reiniciarConservandoPin(estado) {
+    const pin = estado.pinPapa;
+    const nuevo = reiniciar();
+    nuevo.pinPapa = pin;
+    guardar(nuevo);
+    return nuevo;
+  }
+
   // ===== Hito de 100 días de racha (pedido explícito del usuario, 2026-09-26) =====
   // Se celebra UNA vez con una animación a pantalla completa (SM.ui.celebrarRacha100).
   // Si la racha se pierde y Santi vuelve a llegar a 100, no se repite (ya es leyenda).
@@ -739,7 +766,7 @@
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
     actualizarModoSoloTablas, reiniciarRacha, semanaRacha, hoyISO,
-    hito100Pendiente, marcarHito100Visto,
+    hito100Pendiente, marcarHito100Visto, tienePin, verificarPin, establecerPin, reiniciarConservandoPin,
     xpParaPlaneta, xpParaNivel, planetaDesbloqueado, planetasPorAnunciar, marcarPlanetasAnunciados,
     rescateDisponible, iniciarRescate, terminarRescate, RESCATE_PREGUNTAS, RESCATE_ERRORES_MAX,
     statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,

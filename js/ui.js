@@ -6,7 +6,10 @@
   let intervaloPregunta = null;
   let rafArcade = null;
   let intervaloRachaWidget = null;
+  // Limpieza extra de un juego (p. ej. quitar el listener de teclado de la Serpiente).
+  let limpiezaJuego = null;
   function detenerIntervalo() {
+    if (limpiezaJuego) { const f = limpiezaJuego; limpiezaJuego = null; f(); }
     if (intervaloRachaWidget) { clearInterval(intervaloRachaWidget); intervaloRachaWidget = null; }
     if (intervaloJuego) { clearInterval(intervaloJuego); intervaloJuego = null; }
     if (intervaloPregunta) { clearInterval(intervaloPregunta); intervaloPregunta = null; }
@@ -44,6 +47,76 @@
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay || e.target.dataset.accion === 'cancelar') overlay.remove();
       else if (e.target.dataset.accion === 'confirmar') { overlay.remove(); onConfirmar(); }
+    });
+  }
+
+  // ==================== PIN DE PAPÁ ====================
+  // Teclado propio de 4 dígitos. 3 intentos fallidos bloquean 5 minutos (en memoria).
+  let pinFallos = 0;
+  let pinBloqueadoHasta = 0;
+  function tecladoPin(titulo, subtitulo, alCompletar) {
+    const overlay = document.createElement('div');
+    overlay.className = 'sm-overlay';
+    overlay.innerHTML = `<div class="sm-modal sm-modal-pin">
+      <p><b>${esc(titulo)}</b></p>
+      <p class="sm-muted" id="sm-pin-sub">${esc(subtitulo || '')}</p>
+      <div class="sm-pin-puntos" id="sm-pin-puntos">${'<span></span>'.repeat(4)}</div>
+      <div class="sm-teclado sm-teclado-pin">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="sm-tecla" data-tecla="${d}">${d}</button>`).join('')}
+        <button class="sm-tecla" data-tecla="cancelar">✕</button>
+        <button class="sm-tecla" data-tecla="0">0</button>
+        <button class="sm-tecla" data-tecla="borrar">⌫</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    let buffer = '';
+    const pintar = () => overlay.querySelectorAll('#sm-pin-puntos span').forEach((sp, i) => sp.classList.toggle('lleno', i < buffer.length));
+    const api = {
+      cerrar: () => overlay.remove(),
+      error(msg) {
+        buffer = ''; pintar();
+        const sub = overlay.querySelector('#sm-pin-sub');
+        sub.textContent = msg; sub.classList.add('sm-pin-error');
+        const pts = overlay.querySelector('#sm-pin-puntos');
+        pts.classList.remove('sm-shake'); void pts.offsetWidth; pts.classList.add('sm-shake');
+      },
+    };
+    overlay.querySelectorAll('.sm-tecla').forEach((b) => b.addEventListener('click', () => {
+      const t = b.dataset.tecla;
+      if (t === 'cancelar') { overlay.remove(); return; }
+      if (t === 'borrar') buffer = buffer.slice(0, -1);
+      else if (buffer.length < 4) buffer += t;
+      pintar();
+      if (buffer.length === 4) { const v = buffer; setTimeout(() => alCompletar(v, api), 120); }
+    }));
+    return api;
+  }
+  function crearPinPapa(caja, alTerminar) {
+    tecladoPin('Crea el PIN de papá', 'Elige 4 números que solo tú sepas', (pin1, api1) => {
+      api1.cerrar();
+      tecladoPin('Repite el PIN', 'Escríbelo otra vez para confirmar', (pin2, api2) => {
+        if (pin2 !== pin1) { api2.error('No coinciden. Vuelve a empezar.'); setTimeout(() => { api2.cerrar(); crearPinPapa(caja, alTerminar); }, 900); return; }
+        SM.progreso.establecerPin(caja.estado, pin1);
+        api2.cerrar();
+        SM.sonido.logro();
+        if (alTerminar) alTerminar();
+      });
+    });
+  }
+  function pedirPinPapa(caja, titulo, alAcertar) {
+    SM.sonido.click();
+    if (!SM.progreso.tienePin(caja.estado)) { crearPinPapa(caja, alAcertar); return; }
+    if (Date.now() < pinBloqueadoHasta) {
+      const min = Math.ceil((pinBloqueadoHasta - Date.now()) / 60000);
+      confirmar(`Demasiados intentos. Espera ${min} minuto${min === 1 ? '' : 's'} para volver a intentarlo.`, 'Entendido', () => {});
+      return;
+    }
+    tecladoPin(titulo, 'Solo papá o mamá', (pin, api) => {
+      if (SM.progreso.verificarPin(caja.estado, pin)) { pinFallos = 0; api.cerrar(); alAcertar(); return; }
+      pinFallos += 1;
+      SM.sonido.error();
+      if (pinFallos >= 3) { pinFallos = 0; pinBloqueadoHasta = Date.now() + 5 * 60000; api.error('PIN incorrecto. Bloqueado 5 minutos.'); setTimeout(api.cerrar, 1200); return; }
+      api.error(`PIN incorrecto. Te quedan ${3 - pinFallos} intento${3 - pinFallos === 1 ? '' : 's'}.`);
     });
   }
 
@@ -1270,17 +1343,17 @@
     }
   }
 
-  // Pantalla de resultados compartida por los 5 juegos de arcade: registra el
+  // Pantalla de resultados compartida por los 9 juegos de arcade: registra el
   // puntaje, celebra récord/logros/metas/reto diario, y ofrece reintentar o volver.
   // `porDerrota` = terminó por quedarse sin vidas (no en Memoria) — usa un sonido
   // más suave en vez de la fanfarria de siempre, nunca punitivo.
-  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, dificultadId, puntaje, comboMax, porDerrota) {
+  function mostrarResultadoArcade(root, caja, ir, juegoId, idPantallaJuego, dificultadId, puntaje, comboMax, porDerrota, tituloExtra) {
     const resultado = SM.progreso.registrarResultadoArcade(caja.estado, juegoId, dificultadId, puntaje);
     const perfilDif = SM.arcade.obtenerDificultad(dificultadId);
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-resultado">
       <div id="sm-confeti-zona" class="sm-confeti-zona"></div>
       ${SM.mascota.svg(puntaje >= 100 ? 'celebrando' : 'feliz', 'sm-mascota-media')}
-      <h1>¡Misión de arcade completada!</h1>
+      <h1>${tituloExtra ? esc(tituloExtra) : '¡Misión de arcade completada!'}</h1>
       <p class="sm-muted">${perfilDif.emoji} Dificultad ${esc(perfilDif.nombre)} · Puntaje final</p>
       <div class="sm-arcade-puntaje-final">${puntaje}</div>
       ${resultado.esRecord ? '<p class="sm-record">🏅 ¡Nuevo récord en esta dificultad!</p>' : ''}
@@ -1348,6 +1421,430 @@
       btn.addEventListener('click', () => { SM.sonido.click(); ir('elegir-dificultad', { juegoId: btn.dataset.elegir }); });
     });
     cablearNavbar(root, ir);
+  }
+
+  // ==================== ARCADE NUEVO (pedido explícito, 2026-09-26) ====================
+  // Serpiente Numérica, Revienta Globos, Túnel Hiperespacial y Carrera contra Cosmo.
+  // Misma estructura que los otros juegos: lógica en js/arcade.js, dibujo aquí.
+  function vidasTexto(vidas, maximo) {
+    return '❤️'.repeat(vidas) + '🖤'.repeat(Math.max(0, maximo - vidas));
+  }
+  function sacudir(el) {
+    if (!el) return;
+    el.classList.remove('sm-shake');
+    void el.offsetWidth;
+    el.classList.add('sm-shake');
+  }
+  function hudArcade(prefijo, partida, conVidas) {
+    return `<header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="${prefijo}-puntaje">0</b></span>
+          ${conVidas ? `<span id="${prefijo}-vidas"></span>` : ''}
+          <span>⏱️ <b id="${prefijo}-tiempo">${partida.tiempoRestante ? partida.tiempoRestante() : ''}</b>s</span>
+        </div>
+      </header>`;
+  }
+  // Deslizar el dedo sobre un elemento → 'arriba' | 'abajo' | 'izquierda' | 'derecha'.
+  function detectarDeslizar(el, alDeslizar) {
+    let x0 = null, y0 = null;
+    el.addEventListener('touchstart', (e) => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+    el.addEventListener('touchmove', (e) => { if (x0 != null) e.preventDefault(); }, { passive: false });
+    el.addEventListener('touchend', (e) => {
+      if (x0 == null) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - x0, dy = t.clientY - y0;
+      x0 = null;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
+      alDeslizar(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'derecha' : 'izquierda') : (dy > 0 ? 'abajo' : 'arriba'));
+    });
+  }
+  function teclasFlechas(alPresionar) {
+    const mapa = { ArrowUp: 'arriba', ArrowDown: 'abajo', ArrowLeft: 'izquierda', ArrowRight: 'derecha' };
+    const h = (e) => { if (mapa[e.key]) { e.preventDefault(); alPresionar(mapa[e.key]); } };
+    document.addEventListener('keydown', h);
+    return () => document.removeEventListener('keydown', h);
+  }
+
+  // ---------- 🐍 Serpiente Numérica ----------
+  function pantallaSerpiente(root, caja, ir, dificultad) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaSerpiente(dificultad, caja.estado.modoSoloTablas);
+    const vidasMax = partida.vidas();
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Serpiente Numérica? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-serpiente">
+      ${hudArcade('sm-serp', partida, true)}
+      <div class="sm-invasores-regla" id="sm-serp-problema"></div>
+      <div class="sm-serp-tablero" id="sm-serp-tablero" style="--cols:${partida.COLS};--filas:${partida.FILAS}"></div>
+      <div class="sm-dpad">
+        <button class="sm-dpad-btn" data-dir="arriba" style="grid-area:arriba">▲</button>
+        <button class="sm-dpad-btn" data-dir="izquierda" style="grid-area:izq">◀</button>
+        <button class="sm-dpad-btn" data-dir="derecha" style="grid-area:der">▶</button>
+        <button class="sm-dpad-btn" data-dir="abajo" style="grid-area:abajo">▼</button>
+      </div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+    root.querySelectorAll('.sm-dpad-btn').forEach((b) => b.addEventListener('click', () => partida.cambiarDireccion(b.dataset.dir)));
+    const tablero = document.getElementById('sm-serp-tablero');
+    detectarDeslizar(tablero, (d) => partida.cambiarDireccion(d));
+    limpiezaJuego = teclasFlechas((d) => partida.cambiarDireccion(d));
+
+    function dibujar() {
+      const cuerpo = partida.cuerpo();
+      let h = '';
+      partida.frutas().forEach((f) => {
+        h += `<div class="sm-serp-fruta" style="--x:${f.x};--y:${f.y}">${f.valor}</div>`;
+      });
+      cuerpo.forEach((c, i) => {
+        h += `<div class="sm-serp-seg ${i === 0 ? 'cabeza' : ''}" style="--x:${c.x};--y:${c.y}">${i === 0 ? '👀' : ''}</div>`;
+      });
+      tablero.innerHTML = h;
+      document.getElementById('sm-serp-problema').innerHTML = `🍎 Cómete el resultado de <b>${esc(partida.problema().texto)}</b>`;
+    }
+    function actualizarHUD() {
+      document.getElementById('sm-serp-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-serp-tiempo').textContent = partida.tiempoRestante();
+      document.getElementById('sm-serp-vidas').textContent = vidasTexto(partida.vidas(), vidasMax);
+    }
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'serpiente', 'serpiente', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+    }
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const info = partida.tick(dt);
+      if (info.eventos.length) {
+        if (info.eventos.includes('come')) SM.sonido.acierto();
+        if (info.eventos.includes('error') || info.eventos.includes('choque')) { SM.sonido.error(); sacudir(tablero); }
+        dibujar();
+      }
+      actualizarHUD();
+      if (info.terminada) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+    dibujar();
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ---------- 🎈 Revienta Globos ----------
+  function pantallaGlobos(root, caja, ir, dificultad) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaGlobos(dificultad, caja.estado.modoSoloTablas);
+    const vidasMax = partida.vidas();
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+    const elementos = new Map();
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de Revienta Globos? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-globos">
+      ${hudArcade('sm-glo', partida, true)}
+      <div class="sm-invasores-regla" id="sm-glo-regla">${esc(partida.reglaActual().texto)}</div>
+      <div class="sm-globos-cielo" id="sm-globos-cielo"></div>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+    const cielo = document.getElementById('sm-globos-cielo');
+
+    function popup(texto, x, y, clase) {
+      const el = document.createElement('div');
+      el.className = `sm-puntos-popup-arcade ${clase || ''}`;
+      el.textContent = texto;
+      el.style.left = `${x}%`;
+      el.style.top = `${y}%`;
+      cielo.appendChild(el);
+      setTimeout(() => el.remove(), 700);
+    }
+
+    function sincronizar() {
+      const vivos = new Set();
+      partida.globos().forEach((g) => {
+        vivos.add(g.id);
+        let el = elementos.get(g.id);
+        if (!el) {
+          el = document.createElement('button');
+          el.className = 'sm-globo';
+          el.style.setProperty('--color', g.color);
+          el.innerHTML = `<span>${esc(g.etiqueta)}</span>`;
+          const id = g.id;
+          el.addEventListener('pointerdown', (e) => { e.preventDefault(); reventar(id); });
+          cielo.appendChild(el);
+          elementos.set(g.id, el);
+        }
+        const x = g.x + Math.sin(g.fase) * 3;
+        el.style.left = `${x}%`;
+        el.style.top = `${(1 - g.subida) * 100}%`;
+      });
+      [...elementos.keys()].forEach((id) => {
+        if (!vivos.has(id)) {
+          const el = elementos.get(id);
+          elementos.delete(id);
+          if (!el.classList.contains('reventado')) el.remove();
+        }
+      });
+    }
+
+    function reventar(id) {
+      if (!corriendo) return;
+      const r = partida.reventar(id);
+      if (!r) return;
+      const el = elementos.get(id);
+      const x = r.globo.x, y = (1 - r.globo.subida) * 100;
+      if (el) {
+        el.classList.add('reventado', r.acierto ? 'bien' : 'mal');
+        elementos.delete(id);
+        setTimeout(() => el.remove(), 260);
+      }
+      if (r.acierto) { SM.sonido.acierto(); popup(`+${r.puntosGanados}`, x, y); }
+      else { SM.sonido.error(); popup('💥 ¡Ese no!', x, y, 'sm-popup-mal'); sacudir(cielo); }
+      actualizarHUD();
+      if (partida.terminada()) finalizar();
+    }
+
+    function actualizarHUD() {
+      document.getElementById('sm-glo-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-glo-tiempo').textContent = partida.tiempoRestante();
+      document.getElementById('sm-glo-vidas').textContent = vidasTexto(partida.vidas(), vidasMax);
+    }
+    function finalizar() {
+      if (!corriendo) return;
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'globos', 'globos', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+    }
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const info = partida.tick(dt);
+      if (info.reglaNueva) {
+        const el = document.getElementById('sm-glo-regla');
+        el.textContent = partida.reglaActual().texto;
+        el.classList.remove('sm-regla-flash'); void el.offsetWidth; el.classList.add('sm-regla-flash');
+      }
+      sincronizar();
+      actualizarHUD();
+      if (info.terminada) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ---------- 🌀 Túnel Hiperespacial ----------
+  function pantallaTunel(root, caja, ir, dificultad) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaTunel(dificultad, caja.estado.modoSoloTablas);
+    const vidasMax = partida.vidas();
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+    let filaDibujada = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir del Túnel Hiperespacial? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-tunel">
+      ${hudArcade('sm-tun', partida, true)}
+      <div class="sm-invasores-regla sm-tunel-problema" id="sm-tun-problema">🌀 ¡Prepárate!</div>
+      <div class="sm-tunel" id="sm-tunel">
+        <div class="sm-tunel-estrellas"></div>
+        <div class="sm-tunel-carril" data-carril="0"></div>
+        <div class="sm-tunel-carril" data-carril="1"></div>
+        <div class="sm-tunel-carril" data-carril="2"></div>
+        <div class="sm-tunel-fila" id="sm-tun-fila"></div>
+        <div class="sm-tunel-nave" id="sm-tun-nave">🚀</div>
+      </div>
+      <p class="sm-muted" style="text-align:center;margin-top:6px">Toca un carril o desliza ◀ ▶</p>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+    const tunel = document.getElementById('sm-tunel');
+    root.querySelectorAll('.sm-tunel-carril').forEach((el) => {
+      el.addEventListener('pointerdown', () => { partida.moverA(Number(el.dataset.carril)); actualizarNave(); });
+    });
+    const mover = (d) => {
+      if (d === 'izquierda') partida.moverA(partida.carrilActual() - 1);
+      if (d === 'derecha') partida.moverA(partida.carrilActual() + 1);
+      actualizarNave();
+    };
+    detectarDeslizar(tunel, mover);
+    limpiezaJuego = teclasFlechas(mover);
+
+    function xCarril(carril, prof) {
+      // prof 0 = lejos (centro), 1 = cerca (abajo): los carriles se abren con la cercanía.
+      return 50 + (carril - 1) * (8 + 25 * prof);
+    }
+    function actualizarNave() {
+      document.getElementById('sm-tun-nave').style.left = `${xCarril(partida.carrilActual(), 1)}%`;
+    }
+    function dibujarFila() {
+      const fila = partida.fila();
+      const cont = document.getElementById('sm-tun-fila');
+      if (!fila) { cont.innerHTML = ''; filaDibujada = null; return; }
+      if (filaDibujada !== fila.id) {
+        filaDibujada = fila.id;
+        cont.innerHTML = fila.valores.map((v, i) => `<div class="sm-tunel-puerta" data-i="${i}">${v}</div>`).join('');
+        const el = document.getElementById('sm-tun-problema');
+        el.innerHTML = `🌀 <b>${esc(fila.problema.texto)} = ?</b>`;
+        el.classList.remove('sm-regla-flash'); void el.offsetWidth; el.classList.add('sm-regla-flash');
+      }
+      const d = Math.min(1, fila.distancia);
+      const prof = d * d;
+      cont.querySelectorAll('.sm-tunel-puerta').forEach((p) => {
+        const i = Number(p.dataset.i);
+        p.style.left = `${xCarril(i, prof)}%`;
+        p.style.top = `${8 + prof * 72}%`;
+        p.style.transform = `translate(-50%,-50%) scale(${0.45 + prof * 0.75})`;
+        p.style.opacity = String(0.4 + d * 0.6);
+      });
+    }
+    function mostrarCruce(cruce) {
+      const el = document.getElementById('sm-tun-problema');
+      el.innerHTML = cruce.acierto
+        ? `✅ ¡Correcto! ${esc(cruce.problema.texto)} = ${cruce.problema.respuesta}`
+        : `❌ Era ${cruce.problema.respuesta} (${esc(cruce.problema.texto)})`;
+      if (cruce.acierto) SM.sonido.acierto(); else { SM.sonido.error(); sacudir(tunel); }
+    }
+    function actualizarHUD() {
+      document.getElementById('sm-tun-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-tun-tiempo').textContent = partida.tiempoRestante();
+      document.getElementById('sm-tun-vidas').textContent = vidasTexto(partida.vidas(), vidasMax);
+    }
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      mostrarResultadoArcade(root, caja, ir, 'tunel', 'tunel', dificultad, partida.puntaje(), partida.comboMax(), partida.vidas() === 0);
+    }
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const info = partida.tick(dt);
+      if (info.cruce) mostrarCruce(info.cruce);
+      dibujarFila();
+      actualizarHUD();
+      if (info.terminada) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+    actualizarNave();
+    actualizarHUD();
+    rafArcade = requestAnimationFrame(paso);
+  }
+
+  // ---------- 🏁 Carrera contra Cosmo ----------
+  function pantallaCarrera(root, caja, ir, dificultad) {
+    detenerIntervalo();
+    const partida = SM.arcade.crearPartidaCarrera(dificultad, caja.estado.modoSoloTablas);
+    SM.sonido.inicioNivel();
+    let corriendo = true;
+    let ultimoTiempo = null;
+    let problemaDibujado = null;
+
+    function salir() {
+      corriendo = false;
+      detenerIntervalo();
+      confirmar('¿Salir de la carrera? Perderás el puntaje de esta partida.', 'Salir', () => ir('arcade'));
+    }
+
+    root.innerHTML = `<div class="sm-pantalla sm-pantalla-carrera">
+      <header class="sm-barra-superior">
+        <button class="sm-btn-icono" data-accion="salir">✕</button>
+        <div class="sm-invasores-hud">
+          <span>🎯 <b id="sm-car-puntaje">0</b></span>
+          <span>🏁 <b id="sm-car-cuenta">0/${partida.META}</b></span>
+        </div>
+      </header>
+      <div class="sm-carrera-pista">
+        <div class="sm-carrera-linea"><span class="sm-carrera-nombre">Tú</span><div class="sm-carrera-corredor" id="sm-car-santi">🚀</div><span class="sm-carrera-meta">🏁</span></div>
+        <div class="sm-carrera-linea"><span class="sm-carrera-nombre">Cosmo</span><div class="sm-carrera-corredor" id="sm-car-cosmo">🤖</div><span class="sm-carrera-meta">🏁</span></div>
+      </div>
+      <div class="sm-pregunta-card"><p class="sm-pregunta-texto" id="sm-car-problema"></p></div>
+      <div class="sm-opciones" id="sm-car-opciones"></div>
+      <p class="sm-carrera-aviso" id="sm-car-aviso"></p>
+    </div>`;
+    root.querySelector('[data-accion="salir"]').addEventListener('click', salir);
+
+    function dibujarProblema() {
+      const p = partida.problema();
+      if (problemaDibujado === p) return;
+      problemaDibujado = p;
+      document.getElementById('sm-car-problema').textContent = `${p.texto} = ?`;
+      const zona = document.getElementById('sm-car-opciones');
+      zona.innerHTML = partida.opciones().map((v) => `<button class="sm-opcion-btn" data-valor="${v}">${v}</button>`).join('');
+      zona.querySelectorAll('.sm-opcion-btn').forEach((b) => b.addEventListener('click', () => responder(b)));
+    }
+    function responder(btn) {
+      const r = partida.responder(btn.dataset.valor);
+      if (!r) return;
+      const aviso = document.getElementById('sm-car-aviso');
+      if (r.acierto) {
+        SM.sonido.acierto();
+        aviso.textContent = '';
+        const santi = document.getElementById('sm-car-santi');
+        santi.classList.remove('sm-turbo'); void santi.offsetWidth; santi.classList.add('sm-turbo');
+      } else {
+        SM.sonido.error();
+        btn.classList.add('incorrecta');
+        aviso.textContent = `💨 ¡Motor ahogado! Era ${r.respuesta}`;
+        document.querySelectorAll('#sm-car-opciones .sm-opcion-btn').forEach((b) => { b.disabled = true; });
+      }
+      actualizar();
+    }
+    function actualizar() {
+      document.getElementById('sm-car-puntaje').textContent = partida.puntaje();
+      document.getElementById('sm-car-cuenta').textContent = `${Math.round(partida.avanceSanti() * partida.META)}/${partida.META}`;
+      document.getElementById('sm-car-santi').style.left = `${partida.avanceSanti() * 82}%`;
+      document.getElementById('sm-car-cosmo').style.left = `${partida.avanceCosmo() * 82}%`;
+      if (!partida.bloqueado()) {
+        document.querySelectorAll('#sm-car-opciones .sm-opcion-btn').forEach((b) => { if (!b.classList.contains('incorrecta')) b.disabled = false; });
+        const hayMal = document.querySelector('#sm-car-opciones .incorrecta');
+        if (hayMal) { problemaDibujado = null; document.getElementById('sm-car-aviso').textContent = ''; }
+      }
+      dibujarProblema();
+    }
+    function finalizar() {
+      corriendo = false;
+      detenerIntervalo();
+      const gano = partida.gano();
+      mostrarResultadoArcade(root, caja, ir, 'carrera', 'carrera', dificultad, partida.puntaje(), partida.comboMax(), !gano,
+        gano ? '🏆 ¡Le ganaste a Cosmo!' : '🤖 Cosmo llegó primero… ¡la revancha!');
+    }
+    function paso(marca) {
+      if (!corriendo) return;
+      if (ultimoTiempo == null) ultimoTiempo = marca;
+      const dt = Math.min(0.1, (marca - ultimoTiempo) / 1000);
+      ultimoTiempo = marca;
+      const info = partida.tick(dt);
+      actualizar();
+      if (info.terminada || partida.terminada()) { finalizar(); return; }
+      rafArcade = requestAnimationFrame(paso);
+    }
+    dibujarProblema();
+    actualizar();
+    rafArcade = requestAnimationFrame(paso);
   }
 
   // ==================== ARCADE (elegir dificultad) ====================
@@ -2040,7 +2537,7 @@
 
         <div class="sm-campo">
           <span>🎯 Modo enfoque: solo tablas de multiplicar</span>
-          <p class="sm-muted" style="margin-bottom:8px">Mientras esté activo, Tablix está abierto y los demás planetas se van abriendo solos con XP (uno cada 1.000 XP: Numeria 1.000, Multiplux 2.000 … Factorix 7.000; el XP no se gasta), y los 5 juegos de arcade preguntan únicamente tablas de multiplicar, mezclando tablas fáciles y difíciles. Actívalo mientras Santi todavía no domina las tablas del 0 al 12; apágalo cuando esté listo para avanzar a otros temas.</p>
+          <p class="sm-muted" style="margin-bottom:8px">Mientras esté activo, Tablix está abierto y los demás planetas se van abriendo solos con XP (uno cada 1.000 XP: Numeria 1.000, Multiplux 2.000 … Factorix 7.000; el XP no se gasta), y los 9 juegos de arcade preguntan únicamente tablas de multiplicar, mezclando tablas fáciles y difíciles. Actívalo mientras Santi todavía no domina las tablas del 0 al 12; apágalo cuando esté listo para avanzar a otros temas.</p>
           <label class="sm-campo sm-campo-fila">
             <span>Modo enfoque activo</span>
             <input type="checkbox" id="sm-campo-solo-tablas" ${estado.modoSoloTablas ? 'checked' : ''}>
@@ -2100,7 +2597,7 @@
 
         <div class="sm-campo">
           <span>🎁 Metas y premios (para papá o mamá)</span>
-          <p class="sm-muted" style="margin-bottom:8px">Define cuántos puntos XP y qué racha mínima necesita Santi para ganarse cada premio real. Además del XP y la racha, TODO premio exige que haya practicado los 8 planetas y los 5 juegos de arcade al menos una vez cada uno (no configurable, aplica siempre) — así no puede ganarse un premio grande acampando en un solo tema fácil. Cuando aparezca "🎉 lista", márcala como entregada aquí una vez se la des.</p>
+          <p class="sm-muted" style="margin-bottom:8px">Define cuántos puntos XP y qué racha mínima necesita Santi para ganarse cada premio real. Además del XP y la racha, TODO premio exige que haya practicado todos los planetas abiertos y los 9 juegos de arcade al menos una vez cada uno (no configurable, aplica siempre) — así no puede ganarse un premio grande acampando en un solo tema fácil. Cuando aparezca "🎉 lista", márcala como entregada aquí una vez se la des.</p>
           <div class="sm-metas-admin-lista">${filasMetas}</div>
           <div class="sm-meta-form">
             <input type="text" id="sm-meta-nombre" placeholder="Nombre del premio (ej. Ir al cine)" maxlength="40">
@@ -2116,7 +2613,14 @@
           </div>
         </div>
 
-        <button class="btn btn-peligro" id="sm-btn-reiniciar">🗑️ Reiniciar todo el progreso</button>
+        <div class="sm-campo">
+          <span>🔐 PIN de papá</span>
+          <p class="sm-muted" style="margin-bottom:8px">${SM.progreso.tienePin(estado)
+            ? 'PIN creado ✅. Se pide para reiniciar todo el progreso.'
+            : '⚠️ Todavía no hay PIN. Créalo tú (papá o mamá) para que nadie más pueda borrar el progreso.'}</p>
+          <button class="btn btn-sec sm-btn-mini" id="sm-btn-pin">${SM.progreso.tienePin(estado) ? '🔐 Cambiar PIN' : '🔐 Crear PIN de papá'}</button>
+        </div>
+        <button class="btn btn-peligro" id="sm-btn-reiniciar">🔒 Reiniciar todo el progreso</button>
       </div>
       ${barraInferior('ajustes')}
     </div>`;
@@ -2191,11 +2695,22 @@
       SM.progreso.agregarMeta(estado, { nombre, emoji, puntos, rachaMinima });
       rerender();
     });
+    // Reiniciar todo exige el PIN de papá (pedido explícito). Si todavía no existe,
+    // primero se crea.
     root.querySelector('#sm-btn-reiniciar').addEventListener('click', () => {
-      confirmar('¿Reiniciar todo el progreso de Santi? Se perderán todas las estrellas, XP y logros.', 'Reiniciar', () => {
-        caja.estado = SM.progreso.reiniciar();
-        ir('inicio');
+      const teniaPin = SM.progreso.tienePin(caja.estado);
+      pedirPinPapa(caja, 'Para borrar TODO el progreso, escribe el PIN de papá', () => {
+        if (!teniaPin) rerender(); // refleja "PIN creado ✅" aunque luego cancele
+        confirmar('¿Reiniciar todo el progreso de Santi? Se perderán todas las estrellas, XP y logros.', 'Reiniciar', () => {
+          caja.estado = SM.progreso.reiniciarConservandoPin(caja.estado);
+          ir('inicio');
+        });
       });
+    });
+    root.querySelector('#sm-btn-pin').addEventListener('click', () => {
+      SM.sonido.click();
+      if (!SM.progreso.tienePin(caja.estado)) { crearPinPapa(caja, rerender); return; }
+      pedirPinPapa(caja, 'Escribe el PIN actual para cambiarlo', () => crearPinPapa(caja, rerender));
     });
     cablearNavbar(root, ir);
   }
@@ -2205,7 +2720,7 @@
     pantallaInicio, pantallaMundo, pantallaLeccion, pantallaJuego,
     pantallaCentroTablas, pantallaElegirTablaEntreno, pantallaMinutoLoco, pantallaConteoTablas, pantallaFlashcardsTablas,
     pantallaArcade, pantallaDificultadArcade, pantallaInvasores, pantallaMemoria, pantallaEscalera,
-    pantallaAgujeros, pantallaAsteroides,
+    pantallaAgujeros, pantallaAsteroides, pantallaSerpiente, pantallaGlobos, pantallaTunel, pantallaCarrera,
     pantallaPremios, pantallaLogros, pantallaAjustes, pantallaRescateRacha,
   };
 })();

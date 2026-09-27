@@ -311,6 +311,59 @@ p{line-height:1.5}
 .sm-asteroide{position:absolute;transform:translate(-50%,-50%);min-width:42px;padding:8px 6px;text-align:center;background:var(--card2);border:2px solid var(--border);border-radius:10px;font-weight:700;font-size:13px}
 .sm-nave{position:absolute;bottom:6px;transform:translateX(-50%);font-size:30px;transition:left .12s ease}
 
+.sm-modal-pin{max-width:300px}
+.sm-pin-puntos{display:flex;justify-content:center;gap:14px;margin:14px 0}
+.sm-pin-puntos span{width:16px;height:16px;border-radius:50%;border:2px solid var(--accent)}
+.sm-pin-puntos span.lleno{background:var(--accent)}
+.sm-pin-puntos.sm-shake{animation:smShake .35s}
+.sm-teclado-pin{margin:0 auto}
+.sm-pin-error{color:var(--red)!important}
+
+/* ---------- serpiente numérica ---------- */
+.sm-serp-tablero{position:relative;width:min(100%,340px);aspect-ratio:var(--cols)/var(--filas);margin:0 auto;background:repeating-linear-gradient(0deg,transparent 0 calc(100%/var(--filas) - 1px),rgba(255,255,255,.04) 0 calc(100%/var(--filas))),var(--bg2);border:2px solid var(--border);border-radius:12px;overflow:hidden;touch-action:none}
+.sm-serp-tablero.sm-shake{animation:smShake .35s}
+.sm-serp-seg,.sm-serp-fruta{position:absolute;z-index:1;left:calc(var(--x) * 100% / var(--cols));top:calc(var(--y) * 100% / var(--filas));width:calc(100% / var(--cols));height:calc(100% / var(--filas));display:flex;align-items:center;justify-content:center}
+.sm-serp-seg::before{content:'';position:absolute;inset:2px;border-radius:7px;background:var(--green);z-index:-1}
+.sm-serp-seg.cabeza::before{background:#2fb866;inset:1px;border-radius:9px}
+.sm-serp-seg.cabeza{font-size:12px;z-index:2}
+.sm-serp-fruta{font-size:12.5px;font-weight:800;color:#fff}
+.sm-serp-fruta::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff8a8a,var(--red));z-index:-1;box-shadow:0 0 8px rgba(255,92,114,.5)}
+.sm-dpad{display:grid;grid-template-areas:". arriba ." "izq . der" ". abajo .";grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,48px);gap:4px;justify-content:center;margin-top:10px}
+.sm-dpad-btn{background:var(--card2);border:1px solid var(--border);border-radius:12px;font-size:20px;color:var(--text)}
+.sm-dpad-btn:active{background:var(--accent);color:#06122a}
+
+/* ---------- revienta globos ---------- */
+.sm-globos-cielo{position:relative;flex:1;min-height:58vh;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg,rgba(79,209,255,.10),rgba(167,139,250,.06) 60%,transparent);touch-action:manipulation}
+.sm-globos-cielo.sm-shake{animation:smShake .35s}
+.sm-globo{position:absolute;width:58px;height:70px;transform:translate(-50%,-50%);border-radius:50% 50% 47% 47%;background:radial-gradient(circle at 32% 28%,rgba(255,255,255,.55),var(--color) 45%);border:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5);box-shadow:inset -6px -8px 12px rgba(0,0,0,.18)}
+.sm-globo::after{content:'';position:absolute;left:50%;top:100%;width:1px;height:22px;background:rgba(255,255,255,.45)}
+.sm-globo.reventado{animation:smGloboPop .25s ease-out forwards;pointer-events:none}
+.sm-globo.reventado.mal{background:var(--red)}
+@keyframes smGloboPop{to{transform:translate(-50%,-50%) scale(1.7);opacity:0}}
+.sm-popup-mal{color:var(--red)}
+
+/* ---------- túnel hiperespacial ---------- */
+.sm-tunel-problema{font-size:17px}
+.sm-tunel{position:relative;flex:1;min-height:56vh;overflow:hidden;border:1px solid var(--border);border-radius:var(--radius);background:radial-gradient(ellipse at 50% 8%,#3b2d7a 0%,#141a45 45%,#070a1f 100%);display:flex;touch-action:none}
+.sm-tunel.sm-shake{animation:smShake .35s}
+.sm-tunel-estrellas{position:absolute;inset:-50% 0 0 0;background-image:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(2px 2px at 70% 60%,#fff6,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#fff7,transparent),radial-gradient(1.5px 1.5px at 85% 20%,#fff5,transparent),radial-gradient(2px 2px at 10% 70%,#fff6,transparent);background-size:100% 50%;animation:smTunelViaje 1.2s linear infinite;pointer-events:none}
+@keyframes smTunelViaje{to{transform:translateY(50%)}}
+.sm-tunel-carril{flex:1;position:relative;z-index:1}
+.sm-tunel-carril+.sm-tunel-carril{border-left:1px dashed rgba(255,255,255,.12)}
+.sm-tunel-fila{position:absolute;inset:0;pointer-events:none;z-index:2}
+.sm-tunel-puerta{position:absolute;min-width:64px;padding:12px 10px;text-align:center;font-size:20px;font-weight:900;color:#fff;background:rgba(79,209,255,.18);border:3px solid var(--accent);border-radius:14px;box-shadow:0 0 16px rgba(79,209,255,.5)}
+.sm-tunel-nave{position:absolute;bottom:8px;transform:translateX(-50%);font-size:38px;transition:left .12s ease;z-index:3;filter:drop-shadow(0 0 10px rgba(255,138,61,.7))}
+
+/* ---------- carrera contra cosmo ---------- */
+.sm-carrera-pista{display:flex;flex-direction:column;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:12px}
+.sm-carrera-linea{position:relative;height:42px;border-radius:10px;background:repeating-linear-gradient(90deg,var(--bg2) 0 18px,var(--card2) 18px 36px)}
+.sm-carrera-nombre{position:absolute;left:6px;top:-2px;font-size:10.5px;color:var(--muted);font-weight:700}
+.sm-carrera-corredor{position:absolute;top:50%;left:0;transform:translateY(-45%);font-size:28px;transition:left .25s ease}
+.sm-carrera-corredor.sm-turbo{animation:smTurbo .35s ease}
+@keyframes smTurbo{50%{filter:drop-shadow(-12px 0 6px rgba(255,138,61,.9))}}
+.sm-carrera-meta{position:absolute;right:4px;top:50%;transform:translateY(-50%);font-size:22px}
+.sm-carrera-aviso{text-align:center;color:var(--red);font-weight:700;min-height:22px;margin-top:8px}
+
 /* ---------- invasores numéricos ---------- */
 .sm-pantalla-invasores{padding-bottom:10px}
 .sm-invasores-hud{flex:1;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:700}
