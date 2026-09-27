@@ -581,6 +581,21 @@ hoy está cumplido, `animando` si no.
 - Pendiente posible (no hecho): widget real de Android vía app nativa/TWA, o insignia
   en el ícono con la Badging API.
 
+## Desbloqueo con XP (pedido explícito del usuario, 2026-09-26)
+- Planetas: con el modo enfoque activo, cada planeta se abre al llegar a
+  `(orden - 1) × 1000` XP totales (Numeria 1.000 … Factorix 7.000). Con el modo
+  enfoque apagado, todos abiertos como antes. El XP NO se gasta (así no retrasa los
+  premios reales). `SM.progreso.planetaDesbloqueado` es la única fuente de verdad —
+  la usan Inicio y `coberturaDetalle` (los premios exigen haber practicado todos los
+  planetas ABIERTOS, así que abrir uno nuevo lo suma a la cobertura).
+- Niveles: se abren por estrellas en el anterior (como siempre) O al llegar a
+  `índice × 300` XP totales, lo que pase primero (`nivelDesbloqueado`). El umbral es
+  sobre el XP total, no el del planeta — decisión del usuario.
+- Tarjetas cerradas muestran "Se abre con N XP" + barra amarilla hacia la meta; niveles
+  cerrados muestran la 🔑 con los dos caminos. Al abrir planetas nuevos, Inicio muestra
+  una sola vez un modal con confeti (`anunciarPlanetasNuevos`, lista en
+  `estado.planetasAnunciados`). Constantes `XP_POR_PLANETA` / `XP_POR_NIVEL`.
+
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de
   frases para que no se sienta repetitivo ("¡Vamos Santi, tú puedes!", etc.).

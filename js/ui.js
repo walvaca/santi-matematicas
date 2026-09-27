@@ -119,13 +119,17 @@
     const tarjetas = SM.mundos.lista.map((m) => {
       const { obtenidas, maximo } = SM.progreso.estrellasMundo(estado, m.id);
       const pct = maximo ? Math.round((obtenidas / maximo) * 100) : 0;
-      const bloqueado = estado.modoSoloTablas && m.id !== 'tablix';
+      // Desbloqueo con XP: un planeta cerrado muestra cuánto XP le falta y la barra
+      // avanza hacia esa meta (el XP no se gasta).
+      const bloqueado = !SM.progreso.planetaDesbloqueado(estado, m.id);
+      const xpMeta = SM.progreso.xpParaPlaneta(m.id);
+      const pctBarra = bloqueado ? Math.min(100, Math.round((estado.xp / xpMeta) * 100)) : pct;
       return `<button class="sm-planeta-card ${bloqueado ? 'bloqueado' : ''}" data-mundo="${m.id}" style="--color-planeta:${m.color}" ${bloqueado ? 'disabled' : ''}>
         <span class="sm-planeta-emoji">${bloqueado ? '🔒' : m.emoji}</span>
         <span class="sm-planeta-nombre">${m.nombre}</span>
-        <span class="sm-planeta-subtitulo">${bloqueado ? 'Primero dominamos las tablas' : esc(m.subtitulo)}</span>
-        <span class="sm-planeta-barra"><span style="width:${pct}%"></span></span>
-        <span class="sm-planeta-estrellas">${bloqueado ? '🔒 Bloqueado' : `⭐ ${obtenidas}/${maximo}`}</span>
+        <span class="sm-planeta-subtitulo">${bloqueado ? `Se abre con ${xpMeta.toLocaleString('es-CO')} XP` : esc(m.subtitulo)}</span>
+        <span class="sm-planeta-barra ${bloqueado ? 'sm-barra-xp' : ''}"><span style="width:${pctBarra}%"></span></span>
+        <span class="sm-planeta-estrellas">${bloqueado ? `✨ Faltan ${(xpMeta - estado.xp).toLocaleString('es-CO')} XP` : `⭐ ${obtenidas}/${maximo}`}</span>
       </button>`;
     }).join('');
 
@@ -191,6 +195,27 @@
     if (btnRescate) btnRescate.addEventListener('click', () => { SM.sonido.click(); ir('rescate-racha'); });
     arrancarCuentaRegresivaRacha(root, caja, ir);
     cablearNavbar(root, ir);
+    anunciarPlanetasNuevos(caja, ir);
+  }
+
+  // Celebra (una sola vez) los planetas que Santi acaba de abrir juntando XP.
+  function anunciarPlanetasNuevos(caja, ir) {
+    const nuevos = SM.progreso.planetasPorAnunciar(caja.estado);
+    if (!nuevos.length) return;
+    SM.progreso.marcarPlanetasAnunciados(caja.estado, nuevos.map((m) => m.id));
+    const overlay = document.createElement('div');
+    overlay.className = 'sm-overlay';
+    overlay.innerHTML = `<div class="sm-modal sm-modal-planeta">
+      <div id="sm-confeti-planeta" class="sm-confeti-zona"></div>
+      <div class="sm-modal-planeta-emojis">${nuevos.map((m) => m.emoji).join(' ')}</div>
+      <h2>🔓 ¡${nuevos.length === 1 ? 'Nuevo planeta desbloqueado' : `${nuevos.length} planetas desbloqueados`}!</h2>
+      <p>Con tu XP abriste <b>${nuevos.map((m) => esc(m.nombre)).join(', ')}</b>. ¡A explorar, capitán!</p>
+      <button class="btn" data-accion="ok">🚀 ¡Vamos!</button>
+    </div>`;
+    document.body.appendChild(overlay);
+    lanzarConfeti(overlay.querySelector('#sm-confeti-planeta'));
+    SM.sonido.logro();
+    overlay.querySelector('[data-accion="ok"]').addEventListener('click', () => { SM.sonido.click(); overlay.remove(); });
   }
 
   // ==================== WIDGET DE RACHA (estilo Duolingo) ====================
@@ -495,6 +520,7 @@
           <span class="sm-nivel-info">
             <span class="sm-nivel-nombre">${esc(nivel.nombre)}</span>
             <span class="sm-nivel-fila-meta">${estrellasHTML(estrellas)}${dificultadHTML(nivel.dificultad)}</span>
+            ${desbloqueado ? '' : `<small class="sm-nivel-llave">🔑 Gana ⭐ en el nivel anterior o llega a ${SM.progreso.xpParaNivel(idx).toLocaleString('es-CO')} XP (faltan ${(SM.progreso.xpParaNivel(idx) - estado.xp).toLocaleString('es-CO')})</small>`}
           </span>
         </button>
         ${estrellas > 0 ? `<button class="sm-btn-reset-nivel" data-reset-nivel="${nivel.id}" title="Reiniciar este nivel para practicar de nuevo">↺</button>` : ''}
@@ -1924,7 +1950,7 @@
 
         <div class="sm-campo">
           <span>🎯 Modo enfoque: solo tablas de multiplicar</span>
-          <p class="sm-muted" style="margin-bottom:8px">Mientras esté activo, solo Tablix queda disponible (los demás planetas se ven bloqueados) y los 5 juegos de arcade preguntan únicamente tablas de multiplicar, mezclando tablas fáciles y difíciles. Actívalo mientras Santi todavía no domina las tablas del 0 al 12; apágalo cuando esté listo para avanzar a otros temas.</p>
+          <p class="sm-muted" style="margin-bottom:8px">Mientras esté activo, Tablix está abierto y los demás planetas se van abriendo solos con XP (uno cada 1.000 XP: Numeria 1.000, Multiplux 2.000 … Factorix 7.000; el XP no se gasta), y los 5 juegos de arcade preguntan únicamente tablas de multiplicar, mezclando tablas fáciles y difíciles. Actívalo mientras Santi todavía no domina las tablas del 0 al 12; apágalo cuando esté listo para avanzar a otros temas.</p>
           <label class="sm-campo sm-campo-fila">
             <span>Modo enfoque activo</span>
             <input type="checkbox" id="sm-campo-solo-tablas" ${estado.modoSoloTablas ? 'checked' : ''}>

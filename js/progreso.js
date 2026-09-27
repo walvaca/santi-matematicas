@@ -157,7 +157,9 @@
     // los 8 planetas dejaría CUALQUIER premio imposible de ganar mientras Santi
     // practica tablas, que es justo lo contrario de lo que se busca. En ese modo la
     // cobertura de planetas se reduce a los que sí están disponibles (solo Tablix).
-    const mundos = estado.modoSoloTablas ? (SM.mundos.lista || []).filter((m) => m.id === 'tablix') : (SM.mundos.lista || []);
+    // Con el desbloqueo por XP, cuentan los planetas que ya estén abiertos (Tablix + los
+    // que Santi haya abierto juntando XP).
+    const mundos = (SM.mundos.lista || []).filter((m) => planetaDesbloqueado(estado, m.id));
     const mundosHechos = mundos.filter((m) => Object.keys(estado.estrellas).some((k) => k.startsWith(`${m.id}:`))).length;
     const juegosArr = Object.values(estado.arcade.juegos);
     const juegosHechos = juegosArr.filter((j) => Object.values(j.dificultades).some((d) => d.partidasJugadas > 0)).length;
@@ -228,6 +230,7 @@
       // Rescate de racha (ver `actualizarProgresoDiario` / `terminarRescate`): solo existe
       // el día en que se perdió una racha > 0. estado: disponible | en-curso | logrado | fallido.
       rescateRacha: null,
+      planetasAnunciados: [],   // planetas desbloqueados por XP que ya se celebraron en Inicio
       // Modo enfoque: solo tablas — pedido explícito del usuario (Santi casi pierde
       // el año por no dominar las tablas, y se dispersaba entre 8 planetas y 5
       // juegos). En true, todos los planetas menos Tablix quedan bloqueados y el
@@ -341,6 +344,7 @@
         metaDiariaXP: guardado.metaDiariaXP || 100,
         retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
         rescateRacha: guardado.rescateRacha || null,
+        planetasAnunciados: guardado.planetasAnunciados || [],
         // A propósito default `true` incluso para bóvedas guardadas ANTES de que
         // existiera este campo (`typeof ... === 'boolean'` es la única forma de
         // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
@@ -549,7 +553,36 @@
     const regulares = mundo.niveles.filter((n) => !n.esQuiz);
     const idx = regulares.findIndex((n) => n.id === nivelId);
     const maximo = estado.progresoMaximo[mundoId] || 0;
-    return idx <= maximo;
+    // Dos caminos, lo que pase primero: estrellas en el nivel anterior (como siempre)
+    // o llegar al XP total del nivel (pedido explícito del usuario, 2026-09-26).
+    return idx <= maximo || estado.xp >= xpParaNivel(idx);
+  }
+
+  // ===== Desbloqueo con XP (pedido explícito del usuario, 2026-09-26) =====
+  // Planetas: con el modo enfoque activo, cada planeta se abre al llegar a su XP total
+  // (1.000 por planeta en el orden de SM.mundos: Numeria 1.000 … Factorix 7.000).
+  // Con el modo enfoque apagado, todos están abiertos como antes. El XP NO se gasta.
+  // Niveles: el nivel N (índice, empezando en 0) se abre también con N × 300 XP.
+  const XP_POR_PLANETA = 1000;
+  const XP_POR_NIVEL = 300;
+  function xpParaPlaneta(mundoId) {
+    const m = SM.mundos.obtener(mundoId);
+    return m ? Math.max(0, (m.orden - 1) * XP_POR_PLANETA) : Infinity;
+  }
+  function xpParaNivel(idx) { return idx * XP_POR_NIVEL; }
+  function planetaDesbloqueado(estado, mundoId) {
+    if (!estado.modoSoloTablas) return true;
+    return estado.xp >= xpParaPlaneta(mundoId);
+  }
+  // Planetas abiertos por XP que todavía no se han celebrado en Inicio.
+  function planetasPorAnunciar(estado) {
+    if (!estado.modoSoloTablas) return [];
+    return (SM.mundos.lista || []).filter((m) => m.orden > 1
+      && planetaDesbloqueado(estado, m.id) && !estado.planetasAnunciados.includes(m.id));
+  }
+  function marcarPlanetasAnunciados(estado, ids) {
+    ids.forEach((id) => { if (!estado.planetasAnunciados.includes(id)) estado.planetasAnunciados.push(id); });
+    guardar(estado);
   }
 
   function estrellasMundo(estado, mundoId) {
@@ -696,6 +729,7 @@
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
     actualizarModoSoloTablas, reiniciarRacha, semanaRacha, hoyISO,
+    xpParaPlaneta, xpParaNivel, planetaDesbloqueado, planetasPorAnunciar, marcarPlanetasAnunciados,
     rescateDisponible, iniciarRescate, terminarRescate, RESCATE_PREGUNTAS, RESCATE_ERRORES_MAX,
     statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,
     actualizarExamenTablas, togglePlanTablas,
