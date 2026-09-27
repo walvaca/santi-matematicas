@@ -27,6 +27,8 @@
       condicion: (e) => e.racha.dias >= 7 },
     { id: 'racha-14', nombre: 'Constancia estelar', icono: '🌌', descripcion: 'Cumple el reto diario 14 días seguidos.',
       condicion: (e) => e.racha.dias >= 14 },
+    { id: 'racha-100', nombre: 'Leyenda de la racha', icono: '💯', descripcion: 'Cumple el reto diario 100 días seguidos.',
+      condicion: (e) => e.racha.dias >= 100 },
     { id: 'veloz', nombre: 'Veloz como un cohete', icono: '⚡', descripcion: 'Responde 15 o más en un nivel contrarreloj.',
       condicion: (e) => e.mejorContrarreloj >= 15 },
     { id: 'minuto-oro', nombre: 'Minuto de oro', icono: '⏱️', descripcion: 'Consigue 10 o más aciertos en el Minuto Loco de alguna tabla (Centro de Tablas).',
@@ -230,7 +232,8 @@
       // Rescate de racha (ver `actualizarProgresoDiario` / `terminarRescate`): solo existe
       // el día en que se perdió una racha > 0. estado: disponible | en-curso | logrado | fallido.
       rescateRacha: null,
-      planetasAnunciados: [],   // planetas desbloqueados por XP que ya se celebraron en Inicio
+      planetasAnunciados: [],
+      hito100Visto: false,      // la animación de 100 días de racha ya se mostró   // planetas desbloqueados por XP que ya se celebraron en Inicio
       // Modo enfoque: solo tablas — pedido explícito del usuario (Santi casi pierde
       // el año por no dominar las tablas, y se dispersaba entre 8 planetas y 5
       // juegos). En true, todos los planetas menos Tablix quedan bloqueados y el
@@ -345,6 +348,7 @@
         retoDiario: Object.assign({ fecha: null, xpHoy: 0, cumplidoHoy: false }, guardado.retoDiario),
         rescateRacha: guardado.rescateRacha || null,
         planetasAnunciados: guardado.planetasAnunciados || [],
+        hito100Visto: !!guardado.hito100Visto,
         // A propósito default `true` incluso para bóvedas guardadas ANTES de que
         // existiera este campo (`typeof ... === 'boolean'` es la única forma de
         // distinguir "false porque el adulto ya lo apagó" de "no existía todavía").
@@ -651,6 +655,12 @@
     return estado;
   }
 
+  // ===== Hito de 100 días de racha (pedido explícito del usuario, 2026-09-26) =====
+  // Se celebra UNA vez con una animación a pantalla completa (SM.ui.celebrarRacha100).
+  // Si la racha se pierde y Santi vuelve a llegar a 100, no se repite (ya es leyenda).
+  function hito100Pendiente(estado) { return estado.racha.dias >= 100 && !estado.hito100Visto; }
+  function marcarHito100Visto(estado) { estado.hito100Visto = true; guardar(estado); }
+
   // ===== Rescate de racha =====
   // Pedido explícito del usuario (2026-09-26): un juego de recuperación que SOLO aparece
   // cuando Santi pierde la racha. 10 operaciones de tablas; con 0, 1 o 2 errores la
@@ -729,6 +739,7 @@
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
     actualizarModoSoloTablas, reiniciarRacha, semanaRacha, hoyISO,
+    hito100Pendiente, marcarHito100Visto,
     xpParaPlaneta, xpParaNivel, planetaDesbloqueado, planetasPorAnunciar, marcarPlanetasAnunciados,
     rescateDisponible, iniciarRescate, terminarRescate, RESCATE_PREGUNTAS, RESCATE_ERRORES_MAX,
     statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,

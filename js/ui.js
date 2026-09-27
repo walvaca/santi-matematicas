@@ -195,7 +195,92 @@
     if (btnRescate) btnRescate.addEventListener('click', () => { SM.sonido.click(); ir('rescate-racha'); });
     arrancarCuentaRegresivaRacha(root, caja, ir);
     cablearNavbar(root, ir);
-    anunciarPlanetasNuevos(caja, ir);
+    // Respaldo: si por algo no se vio en la pantalla de resultados, se muestra aquí.
+    if (SM.progreso.hito100Pendiente(estado)) celebrarRacha100(caja);
+    else anunciarPlanetasNuevos(caja, ir);
+  }
+
+  // ==================== ANIMACIÓN: 100 DÍAS DE RACHA ====================
+  // Pedido explícito del usuario: "una animación al completar la racha de 100 días".
+  // Pantalla completa, una sola vez (estado.hito100Visto): la llama crece desde cero,
+  // el contador sube de 0 a 100, fuegos artificiales + lluvia de confeti, Cosmo
+  // celebrando, la insignia 💯 y una fanfarria propia (SM.sonido.hito100). El botón
+  // para cerrar aparece a los 3 s para que alcance a ver el show completo.
+  function celebrarRacha100(caja) {
+    if (document.querySelector('.sm-hito100')) return;
+    SM.progreso.marcarHito100Visto(caja.estado);
+    const nombre = esc(caja.estado.nombre);
+    const overlay = document.createElement('div');
+    overlay.className = 'sm-hito100';
+    overlay.innerHTML = `
+      <div class="sm-h100-rayos"></div>
+      <div class="sm-h100-fuegos"></div>
+      <div class="sm-confeti-zona sm-h100-confeti"></div>
+      <div class="sm-h100-contenido">
+        <div class="sm-h100-llama">
+          <svg viewBox="0 0 64 80" aria-hidden="true">
+            <defs>
+              <linearGradient id="sm-h100-g1" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5c1f"/><stop offset="1" stop-color="#ffb13d"/></linearGradient>
+              <linearGradient id="sm-h100-g2" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#fff6c2"/></linearGradient>
+            </defs>
+            <path fill="url(#sm-h100-g1)" d="M32 2C36 18 54 26 54 50C54 66 44 78 32 78C20 78 10 66 10 50C10 38 16 30 22 24C22 34 26 38 30 38C28 26 26 14 32 2Z"/>
+            <path fill="url(#sm-h100-g2)" d="M32 36C34 46 44 50 44 60C44 70 38 76 32 76C26 76 20 70 20 60C20 54 23 50 26 47C26 52 28 55 31 55C30 48 29 42 32 36Z"/>
+          </svg>
+          <span class="sm-h100-num" id="sm-h100-num">0</span>
+        </div>
+        <h1 class="sm-h100-titulo">¡100 DÍAS DE RACHA!</h1>
+        <p class="sm-h100-sub">${nombre}, eres oficialmente una <b>LEYENDA</b> 🔥</p>
+        <div class="sm-h100-insignia">💯 <b>Leyenda de la racha</b><small>100 días seguidos practicando</small></div>
+        ${SM.mascota.svg('celebrando', 'sm-mascota-media sm-h100-cosmo')}
+        <button class="btn sm-h100-btn">¡Soy una leyenda! 🔥</button>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Contador 0 → 100 con frenado al final.
+    const num = overlay.querySelector('#sm-h100-num');
+    const t0 = performance.now();
+    const DURACION = 1800;
+    function pasoContador(t) {
+      const k = Math.min(1, (t - t0 - 500) / DURACION);
+      if (k > 0) num.textContent = Math.round(100 * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(pasoContador);
+      else num.classList.add('listo');
+    }
+    requestAnimationFrame(pasoContador);
+
+    // Fuegos artificiales: explosiones de chispas en puntos al azar, en tandas.
+    const zonaFuegos = overlay.querySelector('.sm-h100-fuegos');
+    const colores = ['#ffd23f', '#ff8a3d', '#4fd1ff', '#3fd67a', '#ff6fae', '#a78bfa'];
+    function explosion() {
+      const x = 10 + Math.random() * 80;
+      const y = 8 + Math.random() * 45;
+      const color = colores[Math.floor(Math.random() * colores.length)];
+      for (let i = 0; i < 18; i++) {
+        const chispa = document.createElement('span');
+        chispa.className = 'sm-h100-chispa';
+        const ang = (i / 18) * Math.PI * 2;
+        const dist = 60 + Math.random() * 50;
+        chispa.style.left = `${x}%`;
+        chispa.style.top = `${y}%`;
+        chispa.style.background = color;
+        chispa.style.setProperty('--dx', `${Math.cos(ang) * dist}px`);
+        chispa.style.setProperty('--dy', `${Math.sin(ang) * dist}px`);
+        zonaFuegos.appendChild(chispa);
+        setTimeout(() => chispa.remove(), 1300);
+      }
+    }
+    const tiempos = [700, 1000, 1300, 1700, 2100, 2400, 2900, 3400, 3900, 4500, 5200, 6000];
+    const timers = tiempos.map((ms) => setTimeout(explosion, ms));
+    const confeti = overlay.querySelector('.sm-h100-confeti');
+    [900, 2300, 3800].forEach((ms) => timers.push(setTimeout(() => lanzarConfeti(confeti), ms)));
+
+    SM.sonido.hito100();
+    overlay.querySelector('.sm-h100-btn').addEventListener('click', () => {
+      SM.sonido.click();
+      timers.forEach(clearTimeout);
+      overlay.classList.add('saliendo');
+      setTimeout(() => overlay.remove(), 400);
+    });
   }
 
   // Celebra (una sola vez) los planetas que Santi acaba de abrir juntando XP.
@@ -237,6 +322,7 @@
       { dias: 7, texto: '🏆 logro Semana espacial' },
       { dias: 14, texto: '🌌 logro Constancia estelar' },
       { dias: 30, texto: '👑 ¡un mes entero!' },
+      { dias: 100, texto: '💯 ¡la gran celebración!' },
     ];
     estado.metas.filter((m) => !m.reclamada && m.rachaMinima).forEach((m) => {
       if (!hitos.some((h) => h.dias === m.rachaMinima)) hitos.push({ dias: m.rachaMinima, texto: '🎁 racha para premios' });
@@ -467,6 +553,7 @@
         if (r.exito) {
           lanzarConfeti(document.getElementById('sm-confeti-zona'));
           setTimeout(() => SM.sonido.rachaSubida(), 250);
+          if (SM.progreso.hito100Pendiente(caja.estado)) setTimeout(() => celebrarRacha100(caja), 1200);
         } else {
           SM.sonido.derrota();
         }
@@ -898,6 +985,7 @@
       if (r.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
       else if (r.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
       else if (r.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
+      if (SM.progreso.hito100Pendiente(caja.estado)) setTimeout(() => celebrarRacha100(caja), 1200);
 
       root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); opciones.reintentar(); });
       root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir(opciones.volverA.pantalla, opciones.volverA.datos); });
@@ -1163,6 +1251,7 @@
       if (r.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
       else if (r.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
       else if (r.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
+      if (SM.progreso.hito100Pendiente(caja.estado)) setTimeout(() => celebrarRacha100(caja), 1200);
 
       root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir('juego', { mundoId, nivelId }); });
       root.querySelector('[data-accion="mapa"]').addEventListener('click', () => { SM.sonido.click(); ir('mundo', { mundoId }); });
@@ -1215,6 +1304,7 @@
     if (resultado.metasNuevas.length) setTimeout(() => SM.sonido.metaAlcanzada(), 350);
     else if (resultado.retoCumplidoAhora) setTimeout(() => SM.sonido.rachaSubida(), 350);
     else if (resultado.logrosNuevos.length) setTimeout(() => SM.sonido.logro(), 350);
+    if (SM.progreso.hito100Pendiente(caja.estado)) setTimeout(() => celebrarRacha100(caja), 1200);
     root.querySelector('[data-accion="reintentar"]').addEventListener('click', () => { SM.sonido.click(); ir(idPantallaJuego, { dificultad: dificultadId }); });
     root.querySelector('[data-accion="volver"]').addEventListener('click', () => { SM.sonido.click(); ir('arcade'); });
   }

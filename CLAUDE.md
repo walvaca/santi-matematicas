@@ -596,6 +596,16 @@ hoy está cumplido, `animando` si no.
   una sola vez un modal con confeti (`anunciarPlanetasNuevos`, lista en
   `estado.planetasAnunciados`). Constantes `XP_POR_PLANETA` / `XP_POR_NIVEL`.
 
+## Animación de 100 días de racha (pedido explícito del usuario, 2026-09-26)
+`SM.ui.celebrarRacha100` (en `js/ui.js`): overlay a pantalla completa `.sm-hito100`
+con rayos girando, llama que crece + contador 0→100, fuegos artificiales en tandas,
+3 lluvias de confeti, título con brillo, insignia 💯 y Cosmo saltando; el botón de
+cerrar aparece a los 3 s. Fanfarria propia `SM.sonido.hito100()` (no reutiliza
+`metaAlcanzada`, que es solo para premios reales). Se dispara UNA vez en la vida del
+juego (`estado.hito100Visto`, `SM.progreso.hito100Pendiente`) desde las 3 pantallas de
+resultados que suman XP y desde el rescate de racha; Inicio es el respaldo. Nuevo logro
+`racha-100` "Leyenda de la racha" y hito 100 en el widget de racha.
+
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de
   frases para que no se sienta repetitivo ("¡Vamos Santi, tú puedes!", etc.).

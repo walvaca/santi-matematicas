@@ -96,6 +96,16 @@
     tono(1319, 0.4, 0.4, 'triangle', 0.2);
   }
 
+  // Fanfarria exclusiva del hito de 100 días de racha — la más larga de la app, suena
+  // una sola vez en la vida del juego (ver SM.ui.celebrarRacha100).
+  function hito100() {
+    const subida = [392, 523, 659, 784, 1047, 1319, 1568];
+    subida.forEach((f, i) => tono(f, i * 0.09, 0.18, 'triangle', 0.14));
+    [1047, 1319, 1568].forEach((f) => tono(f, 0.75, 0.9, 'triangle', 0.12));
+    [784, 988, 1175].forEach((f) => tono(f, 1.2, 0.35, 'square', 0.05));
+    [1047, 1319, 1568, 2093].forEach((f) => tono(f, 1.55, 1.4, 'triangle', 0.11));
+  }
+
   // Fin de partida de arcade por quedarse sin vidas: un tono suave, nunca punitivo.
   function derrota() {
     tono(392, 0, 0.16, 'sine', 0.12);
@@ -166,7 +176,7 @@
   window.SM = window.SM || {};
   window.SM.sonido = {
     acierto, error, click, nivelCompletado, logro, disparo, explosion,
-    inicioNivel, rachaSubida, metaAlcanzada, derrota,
+    inicioNivel, rachaSubida, metaAlcanzada, derrota, hito100,
     setActivo, estaActivo,
     musica: { iniciar: musicaIniciar, detener: musicaDetener, setActiva: musicaSetActiva, estaActiva: musicaEstaActiva },
   };
