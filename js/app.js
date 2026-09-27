@@ -5,8 +5,10 @@
   caja.estado = SM.progreso.actualizarProgresoDiario(caja.estado);
   SM.sonido.setActivo(caja.estado.sonido);
 
+  let pantallaActual = 'inicio';
   function ir(pantalla, datos) {
     datos = datos || {};
+    pantallaActual = pantalla || 'inicio';
     const root = document.getElementById('app');
     window.scrollTo(0, 0);
     switch (pantalla) {
@@ -42,6 +44,15 @@
     function iniciarMusicaSiCorresponde() {
       if (caja.estado.musica) SM.sonido.musica.iniciar();
     }
+    // En Android la app puede quedar abierta en segundo plano varios días: al volver,
+    // si cambió la fecha, se cierra el día (regla de racha de siempre) y, si estaba en
+    // Inicio, se repinta para que el widget de racha muestre el día nuevo.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (caja.estado.retoDiario.fecha === SM.progreso.hoyISO()) return;
+      caja.estado = SM.progreso.actualizarProgresoDiario(caja.estado);
+      if (pantallaActual === 'inicio') ir('inicio');
+    });
     document.addEventListener('click', iniciarMusicaSiCorresponde, { once: true });
     document.addEventListener('touchstart', iniciarMusicaSiCorresponde, { once: true });
   });

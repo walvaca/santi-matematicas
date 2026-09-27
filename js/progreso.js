@@ -214,7 +214,10 @@
       logros: [],              // ids obtenidos
       leccionesVistas: [],      // ids de mundo cuya lección ya se vio
       mejorContrarreloj: 0,      // mayor cantidad de aciertos en un nivel contrarreloj
-      racha: { dias: 0, ultimaFecha: null },
+      // `historial`: fechas ISO (AAAA-MM-DD) de los días en que SÍ cumplió el reto —
+      // solo alimenta el widget de racha estilo Duolingo (semana con días marcados),
+      // no cambia ninguna regla de la racha. Se guardan las últimas 60.
+      racha: { dias: 0, ultimaFecha: null, historial: [] },
       sonido: true,
       musica: true,
       arcade: { juegos: arcadeJuegosPorDefecto() },
@@ -293,6 +296,31 @@
     return { juegos: base };
   }
 
+  function isoDe(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  // Bóvedas guardadas antes del widget de racha no tienen `historial`: se reconstruye
+  // a partir de la racha que ya tenía (N días seguidos que terminan en el último día
+  // cumplido), así el widget no aparece vacío la primera vez que Santi lo ve.
+  function migrarRacha(racha, retoDiario) {
+    const r = Object.assign({ dias: 0, ultimaFecha: null }, racha);
+    if (Array.isArray(r.historial)) return r;
+    r.historial = [];
+    const reto = retoDiario || {};
+    if (r.dias > 0 && reto.fecha) {
+      const [a, m, d] = reto.fecha.split('-').map(Number);
+      const fin = new Date(a, m - 1, d);
+      if (!reto.cumplidoHoy) fin.setDate(fin.getDate() - 1);
+      for (let i = r.dias - 1; i >= 0; i--) {
+        const dia = new Date(fin);
+        dia.setDate(fin.getDate() - i);
+        r.historial.push(isoDe(dia));
+      }
+    }
+    return r;
+  }
+
   function cargar() {
     try {
       const crudo = localStorage.getItem(CLAVE);
@@ -302,7 +330,7 @@
       return Object.assign(porDefecto(), guardado, {
         estrellas,
         progresoMaximo: guardado.progresoMaximo || progresoMaximoInicial(estrellas),
-        racha: Object.assign({ dias: 0, ultimaFecha: null }, guardado.racha),
+        racha: migrarRacha(guardado.racha, guardado.retoDiario),
         logros: guardado.logros || [],
         leccionesVistas: guardado.leccionesVistas || [],
         arcade: migrarArcade(guardado.arcade),
@@ -368,6 +396,9 @@
     if (!estado.retoDiario.cumplidoHoy && estado.retoDiario.xpHoy >= estado.metaDiariaXP) {
       estado.retoDiario.cumplidoHoy = true;
       estado.racha.dias += 1;
+      const hoy = hoyISO();
+      if (!estado.racha.historial.includes(hoy)) estado.racha.historial.push(hoy);
+      estado.racha.historial = estado.racha.historial.slice(-60);
       return true;
     }
     return false;
@@ -578,11 +609,27 @@
     return estado;
   }
 
+  // Los 7 días de la semana actual (lunes a domingo) para el widget de racha:
+  // cada uno con su letra y si está cumplido / es hoy / es futuro.
+  function semanaRacha(estado) {
+    const hoy = new Date();
+    const hoyStr = isoDe(hoy);
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+    const letras = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    return letras.map((letra, i) => {
+      const d = new Date(lunes);
+      d.setDate(lunes.getDate() + i);
+      const iso = isoDe(d);
+      return { letra, iso, cumplido: estado.racha.historial.includes(iso), esHoy: iso === hoyStr, futuro: iso > hoyStr };
+    });
+  }
+
   // Reinicia SOLO la racha y el reto del día (pedido explícito del usuario, "volvamos
   // a iniciar desde 00") — a propósito no toca estrellas/XP/logros, que nunca se
   // borran solos en esta app.
   function reiniciarRacha(estado) {
-    estado.racha = { dias: 0, ultimaFecha: null };
+    estado.racha = { dias: 0, ultimaFecha: null, historial: [] };
     estado.retoDiario = { fecha: null, xpHoy: 0, cumplidoHoy: false };
     guardar(estado);
     return estado;
@@ -594,7 +641,7 @@
     nivelDesbloqueado, estrellasMundo, sumaEstrellas, reiniciar, toggleSonido, toggleMusica, metaLista,
     marcarLeccionVista, agregarMeta, eliminarMeta, reclamarMeta, mejorPuntajeJuego,
     resetearNivel, resetearPlaneta, actualizarDesafio, actualizarMetaDiaria, coberturaCompleta, coberturaDetalle,
-    actualizarModoSoloTablas, reiniciarRacha,
+    actualizarModoSoloTablas, reiniciarRacha, semanaRacha, hoyISO,
     statsFact, registrarFactTabla, resumenDominioTablas, registrarResultadoMetodoTablas,
     actualizarExamenTablas, togglePlanTablas,
   };

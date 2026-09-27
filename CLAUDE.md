@@ -552,6 +552,25 @@ música también es sintetizada con Web Audio API, mismo patrón que los efectos
   `ui.js` prioriza una sola: meta > racha > logro — nunca se encima más de un
   jingle largo.
 
+## Widget de racha estilo Duolingo (Inicio, `widgetRachaHTML` en `js/ui.js`)
+Pedido explícito del usuario (2026-09-26): "widgets como el de Duolingo, el de la
+racha". Un widget real en la pantalla de inicio de Android exige app nativa (APK), así
+que se acordó hacerlo DENTRO de la app: reemplaza la tarjeta vieja "Reto de hoy" y el
+chip 🔥 de la fila de stats. Muestra llama grande con los días (gris = hoy pendiente,
+naranja animada = hoy cumplido), la semana L–D marcada, barra de XP de hoy, cuenta
+regresiva hasta medianoche (borde rojo pulsante si quedan ≤4 h y hay racha que
+perder) y el próximo hito (logros de 3/7/14 días, 30 días, y la `rachaMinima` de las
+metas). Tocarlo abre "Mis logros". Cosmo en Inicio pasa a `celebrando` si el reto de
+hoy está cumplido, `animando` si no.
+- Datos: `racha.historial` (fechas ISO cumplidas, últimas 60) se llena en `sumarXP`;
+  para bóvedas viejas `migrarRacha` lo reconstruye desde `racha.dias` + `retoDiario`.
+  `SM.progreso.semanaRacha(estado)` arma los 7 días. No cambia ninguna regla de racha.
+- Cambio de día con la app abierta: el intervalo del widget (cada 30 s, limpiado en
+  `detenerIntervalo`) y un `visibilitychange` en `app.js` llaman a
+  `actualizarProgresoDiario` y repintan Inicio.
+- Pendiente posible (no hecho): widget real de Android vía app nativa/TWA, o insignia
+  en el ícono con la Badging API.
+
 ## Motivación (el propósito central de la app — no recortar esto en cambios futuros)
 - Cosmo (mascota, `js/mascota.js`) siempre anima, nunca regaña. Banco amplio de
   frases para que no se sienta repetitivo ("¡Vamos Santi, tú puedes!", etc.).

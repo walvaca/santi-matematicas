@@ -5,7 +5,9 @@
   let intervaloJuego = null;
   let intervaloPregunta = null;
   let rafArcade = null;
+  let intervaloRachaWidget = null;
   function detenerIntervalo() {
+    if (intervaloRachaWidget) { clearInterval(intervaloRachaWidget); intervaloRachaWidget = null; }
     if (intervaloJuego) { clearInterval(intervaloJuego); intervaloJuego = null; }
     if (intervaloPregunta) { clearInterval(intervaloPregunta); intervaloPregunta = null; }
     if (rafArcade) { cancelAnimationFrame(rafArcade); rafArcade = null; }
@@ -156,27 +158,16 @@
       </span>
     </button>` : '';
 
-    const xpHoy = estado.retoDiario.xpHoy;
-    const metaHoy = estado.metaDiariaXP;
     const cumplidoHoy = estado.retoDiario.cumplidoHoy;
-    const pctHoy = Math.min(100, Math.round((xpHoy / metaHoy) * 100));
-    const retoHTML = `<div class="sm-reto-diario ${cumplidoHoy ? 'cumplido' : ''}">
-      <span class="sm-reto-diario-emoji">${cumplidoHoy ? '✅' : '🎯'}</span>
-      <div class="sm-meta-mini-info">
-        <span>${cumplidoHoy ? '¡Reto de hoy cumplido!' : 'Reto de hoy'} <b>${xpHoy}/${metaHoy} XP</b></span>
-        <span class="sm-planeta-barra"><span style="width:${pctHoy}%"></span></span>
-        <small class="sm-muted">${cumplidoHoy ? `Racha activa: ${estado.racha.dias} día${estado.racha.dias === 1 ? '' : 's'} 🔥` : 'Si no lo cumples hoy, la racha vuelve a 0 mañana'}</small>
-      </div>
-    </div>`;
+    const retoHTML = widgetRachaHTML(estado);
 
     root.innerHTML = `<div class="sm-pantalla sm-pantalla-inicio">
       <header class="sm-inicio-header">
-        ${SM.mascota.svg('feliz', 'sm-mascota-media')}
+        ${SM.mascota.svg(cumplidoHoy ? 'celebrando' : 'animando', 'sm-mascota-media')}
         <div><h1>${saludo}</h1><p class="sm-muted">Elige un planeta y sigue tu misión matemática</p></div>
       </header>
       <div class="sm-stats-fila">
         <div class="sm-stat-chip">✨ <b>${estado.xp}</b> XP</div>
-        <div class="sm-stat-chip">🔥 <b>${estado.racha.dias}</b> día${estado.racha.dias === 1 ? '' : 's'}</div>
         <div class="sm-stat-chip">⭐ <b>${totalEstrellas}</b> estrellas</div>
       </div>
       ${retoHTML}
@@ -193,7 +184,116 @@
     if (btnMeta) btnMeta.addEventListener('click', () => { SM.sonido.click(); ir('premios'); });
     const btnCentroTablas = root.querySelector('[data-accion="centro-tablas"]');
     if (btnCentroTablas) btnCentroTablas.addEventListener('click', () => { SM.sonido.click(); ir('centro-tablas'); });
+    root.querySelector('[data-accion="racha"]').addEventListener('click', () => { SM.sonido.click(); ir('logros'); });
+    arrancarCuentaRegresivaRacha(root, caja, ir);
     cablearNavbar(root, ir);
+  }
+
+  // ==================== WIDGET DE RACHA (estilo Duolingo) ====================
+  // Pedido explícito del usuario: "widgets como el de Duolingo, el de la racha".
+  // Un widget real en la pantalla de inicio de Android exige una app nativa, así que
+  // se decidió (con el usuario) hacerlo DENTRO de la app, arriba en Inicio: llama
+  // grande con los días, la semana L-D marcada, barra del XP de hoy, cuenta regresiva
+  // hasta medianoche y el próximo hito de racha. Tocarlo abre "Mis logros".
+  function llamaSVG() {
+    return `<svg viewBox="0 0 64 80" class="sm-rw-llama-svg" aria-hidden="true">
+      <path class="sm-rw-llama-ext" d="M32 2C36 18 54 26 54 50C54 66 44 78 32 78C20 78 10 66 10 50C10 38 16 30 22 24C22 34 26 38 30 38C28 26 26 14 32 2Z"/>
+      <path class="sm-rw-llama-int" d="M32 36C34 46 44 50 44 60C44 70 38 76 32 76C26 76 20 70 20 60C20 54 23 50 26 47C26 52 28 55 31 55C30 48 29 42 32 36Z"/>
+    </svg>`;
+  }
+
+  function proximoHitoRacha(estado) {
+    const hitos = [
+      { dias: 3, texto: '🔥 logro Constancia' },
+      { dias: 7, texto: '🏆 logro Semana espacial' },
+      { dias: 14, texto: '🌌 logro Constancia estelar' },
+      { dias: 30, texto: '👑 ¡un mes entero!' },
+    ];
+    estado.metas.filter((m) => !m.reclamada && m.rachaMinima).forEach((m) => {
+      if (!hitos.some((h) => h.dias === m.rachaMinima)) hitos.push({ dias: m.rachaMinima, texto: '🎁 racha para premios' });
+    });
+    hitos.sort((a, b) => a.dias - b.dias);
+    return hitos.find((h) => h.dias > estado.racha.dias) || null;
+  }
+
+  function textoTiempoRestante() {
+    const ahora = new Date();
+    const medianoche = new Date(ahora);
+    medianoche.setHours(24, 0, 0, 0);
+    const min = Math.max(0, Math.floor((medianoche - ahora) / 60000));
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return { min, texto: h > 0 ? `${h} h ${m} min` : `${m} min` };
+  }
+
+  function widgetRachaHTML(estado) {
+    const dias = estado.racha.dias;
+    const cumplido = estado.retoDiario.cumplidoHoy;
+    const xpHoy = estado.retoDiario.xpHoy;
+    const metaHoy = estado.metaDiariaXP;
+    const pctHoy = Math.min(100, Math.round((xpHoy / metaHoy) * 100));
+    const { min } = textoTiempoRestante();
+    const peligro = !cumplido && dias > 0 && min <= 240;
+
+    const semana = SM.progreso.semanaRacha(estado).map((d) => {
+      const clase = [d.cumplido ? 'hecho' : '', d.esHoy ? 'hoy' : '', d.futuro ? 'futuro' : ''].join(' ');
+      return `<div class="sm-rw-dia ${clase}"><span>${d.letra}</span><i>${d.cumplido ? '✓' : ''}</i></div>`;
+    }).join('');
+
+    let titulo;
+    let mensaje;
+    if (cumplido) {
+      titulo = `¡${dias} día${dias === 1 ? '' : 's'} de racha!`;
+      mensaje = `Racha a salvo hoy 🎉 Vuelve mañana para llegar a ${dias + 1}.`;
+    } else if (dias > 0) {
+      titulo = `${dias} día${dias === 1 ? '' : 's'} de racha`;
+      mensaje = `¡Gana ${Math.max(0, metaHoy - xpHoy)} XP más hoy para no perderla!`;
+    } else {
+      titulo = '¡Enciende tu racha!';
+      mensaje = `Gana ${metaHoy} XP hoy y tu llama se prende 🔥`;
+    }
+
+    const hito = proximoHitoRacha(estado);
+    const hitoHTML = hito ? `<small class="sm-rw-hito">Falta${hito.dias - dias === 1 ? '' : 'n'} <b>${hito.dias - dias}</b> día${hito.dias - dias === 1 ? '' : 's'} para ${hito.texto}</small>` : '';
+
+    return `<button class="sm-racha-widget ${cumplido ? 'cumplido' : ''} ${peligro ? 'peligro' : ''}" data-accion="racha">
+      <div class="sm-rw-top">
+        <div class="sm-rw-llama ${cumplido ? 'encendida' : ''}">${llamaSVG()}<span class="sm-rw-num">${dias}</span></div>
+        <div class="sm-rw-texto">
+          <b>${titulo}</b>
+          <small>${mensaje}</small>
+        </div>
+      </div>
+      <div class="sm-rw-semana">${semana}</div>
+      <div class="sm-rw-progreso">
+        <span class="sm-planeta-barra"><span style="width:${pctHoy}%"></span></span>
+        <small><b>${xpHoy}/${metaHoy}</b> XP hoy</small>
+      </div>
+      <div class="sm-rw-pie">
+        ${cumplido ? '<small>✅ Reto de hoy cumplido</small>' : `<small class="sm-rw-cuenta">⏳ Te quedan <b id="sm-rw-tiempo">${textoTiempoRestante().texto}</b></small>`}
+        ${hitoHTML}
+      </div>
+    </button>`;
+  }
+
+  // Refresca la cuenta regresiva cada 30 s. Si la app sigue abierta al pasar la
+  // medianoche, cierra el día (misma regla de siempre en `actualizarProgresoDiario`)
+  // y vuelve a pintar Inicio para que el widget arranque el día nuevo.
+  function arrancarCuentaRegresivaRacha(root, caja, ir) {
+    const fechaPintada = SM.progreso.hoyISO();
+    intervaloRachaWidget = setInterval(() => {
+      if (SM.progreso.hoyISO() !== fechaPintada) {
+        caja.estado = SM.progreso.actualizarProgresoDiario(caja.estado);
+        ir('inicio');
+        return;
+      }
+      const el = root.querySelector('#sm-rw-tiempo');
+      if (!el) return;
+      const t = textoTiempoRestante();
+      el.textContent = t.texto;
+      const widget = root.querySelector('.sm-racha-widget');
+      if (widget && caja.estado.racha.dias > 0 && t.min <= 240) widget.classList.add('peligro');
+    }, 30000);
   }
 
   // ==================== MUNDO (selección de nivel) ====================
